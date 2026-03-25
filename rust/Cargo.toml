@@ -1,0 +1,23 @@
+[package]
+name = "h4-polytopic-attention"
+version = "0.1.0"
+edition = "2021"
+authors = ["Timothy McGirl"]
+description = "H4 Polytopic Attention: 4D geometric attention with O(log t) queries via Coxeter chamber navigation"
+
+[lib]
+name = "h4_rust"
+crate-type = ["cdylib"]
+
+[[bin]]
+name = "h4-polytopic-attention"
+path = "src/main.rs"
+
+[dependencies]
+rayon = "1.10"
+pyo3 = { version = "0.21", features = ["extension-module"] }
+numpy = "0.21"
+
+[profile.release]
+opt-level = 3
+lto = true

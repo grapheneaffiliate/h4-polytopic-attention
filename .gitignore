@@ -1,0 +1,12 @@
+target/
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.egg-info/
+dist/
+data/
+checkpoints/
+results.tsv
+h4_ternary_model.pt
+overnight_results.tsv
