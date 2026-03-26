@@ -10,3 +10,13 @@ checkpoints/
 results.tsv
 h4_ternary_model.pt
 overnight_results.tsv
+
+# External repos (cloned, not our code)
+transformer-vm/
+llama.cpp/
+
+# Generated WASM token files (recompile from .c sources)
+olympus/wasm_tools/compiled/
+
+# Local Claude Code settings
+.claude/settings.local.json

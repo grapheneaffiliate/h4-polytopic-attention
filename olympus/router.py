@@ -263,7 +263,17 @@ class OlympusRouter:
 
     def __init__(self):
         self.sub_router = ChamberSubRouter()
-        # Compiled arithmetic engine — exact math, no LLM needed
+
+        # Primary compute engine: transformer-vm (30K tok/s, any C program, exact)
+        try:
+            from olympus.tvm_engine import TVMEngine
+            self.tvm_engine = TVMEngine()
+            if not self.tvm_engine.available:
+                self.tvm_engine = None
+        except ImportError:
+            self.tvm_engine = None
+
+        # Fallback compute engine: compiled_arithmetic (200/sec, arithmetic only, zero deps)
         try:
             from olympus.compiled_arithmetic import CompiledStackExecutor
             self.compute_engine = CompiledStackExecutor()
@@ -330,13 +340,29 @@ class OlympusRouter:
 
     def handle(self, query: str) -> Dict:
         """
-        Full query handling: compiled arithmetic first, then specialist routing.
+        Full query handling with three-tier compute priority:
 
-        If the query contains arithmetic that can be computed exactly,
-        returns the exact result without invoking any language model.
-        Otherwise, routes to the appropriate specialist.
+        1. transformer-vm (30K tok/s, any C program, exact)
+        2. compiled_arithmetic (200/sec, arithmetic only, zero deps)
+        3. Specialist LLM (language understanding, reasoning)
         """
-        # Tier 0: Try compiled arithmetic (exact, instant, no LLM)
+        # Tier 0a: transformer-vm — primary compute engine
+        if self.tvm_engine:
+            tvm_result = self.tvm_engine.compute(query)
+            if tvm_result is not None:
+                return {
+                    'answer': f"{tvm_result['expression']} = {tvm_result['result']}",
+                    'specialist': 'transformer-vm',
+                    'method': tvm_result['method'],
+                    'engine': tvm_result.get('engine', 'graph-evaluator'),
+                    'tool': tvm_result.get('tool', 'arithmetic'),
+                    'exact': True,
+                    'result': tvm_result['result'],
+                    'time_ms': tvm_result['time_ms'],
+                    'confidence': 1.0,
+                }
+
+        # Tier 0b: compiled arithmetic — zero-dependency fallback
         if self.compute_engine and self.compute_engine.can_handle(query):
             computation = self.compute_engine.extract_and_compute(query)
             if computation is not None:
@@ -351,7 +377,7 @@ class OlympusRouter:
                     'confidence': 1.0,
                 }
 
-        # Tier 1+2: Route to specialist
+        # Tier 1+2: Route to specialist LLM
         route_result = self.route(query)
         route_result['method'] = 'specialist'
         route_result['exact'] = False

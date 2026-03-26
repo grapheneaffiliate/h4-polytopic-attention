@@ -21,21 +21,33 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 
 from router import OlympusRouter
 from compiled_arithmetic import CompiledStackExecutor
+from gguf_inference import GGUFEngine
+try:
+    from tvm_engine import TVMEngine
+    tvm_engine = TVMEngine()
+except ImportError:
+    tvm_engine = None
+from code_verifier import verify_code_response, build_fix_prompt, check_output_properties
 
 # Initialize components
 router = OlympusRouter()
 compute_engine = CompiledStackExecutor()
+gguf_engine = GGUFEngine()
 
 # Track which specialists are available
 SPECIALIST_STATUS = {}
+gguf_available = gguf_engine.available_specialists()
 for name in ['general', 'code', 'math', 'qa']:
-    adapter_path = os.path.join(os.path.dirname(__file__), '..', 'checkpoints', f'olympus_{name}', 'final', 'adapter_model.safetensors')
-    if name == 'general':
-        SPECIALIST_STATUS[name] = 'ready (base SmolLM3)'
-    elif os.path.exists(adapter_path):
-        SPECIALIST_STATUS[name] = 'ready (LoRA adapter)'
+    if name in gguf_available:
+        SPECIALIST_STATUS[name] = 'ready (GGUF, fast)'
     else:
-        SPECIALIST_STATUS[name] = 'not loaded (checkpoint missing)'
+        adapter_path = os.path.join(os.path.dirname(__file__), '..', 'checkpoints', f'olympus_{name}', 'final', 'adapter_model.safetensors')
+        if name == 'general':
+            SPECIALIST_STATUS[name] = 'ready (base SmolLM3)'
+        elif os.path.exists(adapter_path):
+            SPECIALIST_STATUS[name] = 'ready (LoRA adapter, convert to GGUF for speed)'
+        else:
+            SPECIALIST_STATUS[name] = 'not loaded (checkpoint missing)'
 
 
 def process_query(query, history):
@@ -46,7 +58,31 @@ def process_query(query, history):
     t_start = time.time()
     pipeline_steps = []
 
-    # Step 0: Compiled arithmetic (exact, instant)
+    # Step 0a: transformer-vm (primary compute engine, 30K tok/s, any C program)
+    # Computes exact answer. For pure math queries, returns immediately.
+    # For "write code" queries, stores the result as ground truth for verification.
+    tvm_result = None
+    if tvm_engine and tvm_engine.available and tvm_engine.can_handle(query):
+        tvm_result = tvm_engine.compute(query)
+
+    # If query is purely computational (no "write", "code", "function", "implement"), return exact answer
+    q_lower = query.lower()
+    code_request = any(kw in q_lower for kw in ['write', 'code', 'function', 'implement', 'program', 'script', 'class'])
+    if tvm_result and not code_request:
+        t_total = (time.time() - t_start) * 1000
+        pipeline_info = (
+            f"### Pipeline\n"
+            f"**Method:** TRANSFORMER-VM ({tvm_result.get('engine', 'graph-evaluator')})\n\n"
+            f"**Expression:** `{tvm_result['expression']}`\n\n"
+            f"**Result:** `{tvm_result['result']}`\n\n"
+            f"**Time:** {tvm_result['time_ms']:.1f}ms (total {t_total:.1f}ms)\n\n"
+            f"*Exact. C program compiled to WASM, executed through analytical transformer.*"
+        )
+        answer = f"**{tvm_result['expression']} = {tvm_result['result']}**\n\n*Computed via transformer-vm (exact, analytical transformer weights)*"
+        history = history + [{"role": "user", "content": query}, {"role": "assistant", "content": answer}]
+        return history, pipeline_info
+
+    # Step 0b: Compiled arithmetic (zero-dependency fallback)
     if compute_engine.can_handle(query):
         computation = compute_engine.extract_and_compute(query)
         if computation:
@@ -56,17 +92,23 @@ def process_query(query, history):
             trace_str = "\n".join(f"  {t}" for t in trace)
             pipeline_info = (
                 f"### Pipeline\n"
-                f"**Method:** Compiled Arithmetic (binary circuit)\n\n"
+                f"**Method:** Compiled Arithmetic (binary circuit, fallback)\n\n"
                 f"**Expression:** `{expr}`\n\n"
                 f"**Result:** `{result}`\n\n"
                 f"**Time:** {t_total:.1f}ms\n\n"
                 f"**Execution trace:**\n```\n{trace_str}\n```\n\n"
-                f"*Exact. Zero error. No LLM invoked.*"
+                f"*Exact. Zero error. No LLM invoked. (Install transformer-vm for 150x speedup)*"
             )
 
             answer = f"**{expr} = {result}**\n\n*Computed via compiled binary circuit (24-bit, exact)*"
             history = history + [{"role": "user", "content": query}, {"role": "assistant", "content": answer}]
             return history, pipeline_info
+
+    # If transformer-vm computed a ground truth for a code request, note it
+    if tvm_result and code_request:
+        pipeline_steps.append(
+            f"**Ground truth (transformer-vm):** `{tvm_result['result']}` ({tvm_result['time_ms']:.0f}ms)"
+        )
 
     # Step 1: Route
     t_route = time.time()
@@ -101,7 +143,69 @@ def process_query(query, history):
     t_gen = time.time()
     specialist_status = SPECIALIST_STATUS.get(specialist, 'unknown')
 
-    if 'not loaded' in specialist_status:
+    if gguf_engine.is_available(specialist):
+        # Fast path: GGUF inference (~4-8s on CPU)
+        try:
+            answer = gguf_engine.generate(query, specialist=specialist, context=context)
+            t_gen_ms = (time.time() - t_gen) * 1000
+            pipeline_steps.append(f"**Generation:** {specialist} specialist via GGUF ({t_gen_ms:.0f}ms)")
+
+            # Sprint contract: verify code specialist output
+            if specialist == 'code':
+                verification = verify_code_response(answer)
+                if verification['has_code']:
+                    exec_result = verification['execution']
+                    if not verification['verified']:
+                        # Code crashed — try to fix
+                        error_msg = exec_result['stderr'][:200]
+                        pipeline_steps.append(f"**Verify:** code CRASHED\n  Error: `{error_msg}`")
+                        fix_prompt = build_fix_prompt(query, verification['code'], exec_result['stderr'])
+                        try:
+                            fix_answer = gguf_engine.generate(fix_prompt, specialist='code')
+                            fix_check = verify_code_response(fix_answer)
+                            if fix_check['has_code'] and fix_check['verified']:
+                                answer = fix_answer
+                                exec_result = fix_check['execution']
+                                pipeline_steps.append(f"**Fix:** second attempt runs OK")
+                            else:
+                                answer += f"\n\n---\n*Code crashed. Error: {error_msg}*"
+                                pipeline_steps.append(f"**Fix:** second attempt also failed")
+                        except Exception:
+                            answer += f"\n\n---\n*Code crashed. Error: {error_msg}*"
+
+                    # Property check: verify output satisfies mathematical invariants
+                    if exec_result.get('success') and exec_result.get('stdout'):
+                        props = check_output_properties(query, exec_result['stdout'])
+                        if props['checked']:
+                            if props['passed']:
+                                pipeline_steps.append(f"**Properties:** all checks passed\n  Output: `{exec_result['stdout'][:200]}`")
+                            else:
+                                failure_str = "; ".join(props['failures'])
+                                pipeline_steps.append(f"**Properties:** FAILED\n  `{failure_str}`")
+                                # Try fix with property violation as error
+                                fix_prompt = build_fix_prompt(query, verification['code'], f"Output property violation: {failure_str}")
+                                try:
+                                    fix_answer = gguf_engine.generate(fix_prompt, specialist='code')
+                                    fix_check = verify_code_response(fix_answer)
+                                    if fix_check['has_code'] and fix_check['verified']:
+                                        fix_props = check_output_properties(query, fix_check['execution']['stdout'])
+                                        if fix_props['passed']:
+                                            answer = fix_answer
+                                            pipeline_steps.append(f"**Fix:** corrected! Output: `{fix_check['execution']['stdout'][:200]}`")
+                                        else:
+                                            answer += f"\n\n---\n*Property check failed: {failure_str}*"
+                                            pipeline_steps.append(f"**Fix:** second attempt still violates properties")
+                                    else:
+                                        answer += f"\n\n---\n*Property check failed: {failure_str}*"
+                                except Exception:
+                                    answer += f"\n\n---\n*Property check failed: {failure_str}*"
+                        elif exec_result.get('stdout'):
+                            pipeline_steps.append(f"**Verify:** code ran OK\n  Output: `{exec_result['stdout'][:200]}`")
+
+        except Exception as e:
+            answer = f"*[GGUF generation error: {str(e)[:100]}]*"
+            pipeline_steps.append(f"**Generation:** GGUF error")
+    elif 'not loaded' in specialist_status:
         answer = (
             f"*[{specialist} specialist: checkpoint not downloaded yet]*\n\n"
             f"The router correctly identified this as a **{specialist}** query.\n"
@@ -111,7 +215,7 @@ def process_query(query, history):
         )
         pipeline_steps.append(f"**Generation:** {specialist} specialist (not loaded)")
     else:
-        # Try loading and generating
+        # Slow fallback: HuggingFace transformers on CPU
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -134,11 +238,11 @@ def process_query(query, history):
 
                 answer = tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
                 t_gen_ms = (time.time() - t_gen) * 1000
-                pipeline_steps.append(f"**Generation:** {specialist} specialist ({t_gen_ms:.0f}ms)")
+                pipeline_steps.append(f"**Generation:** {specialist} specialist via HF ({t_gen_ms:.0f}ms, convert to GGUF for 3-5x speedup)")
                 del model
             else:
-                answer = f"*[{specialist} specialist: loading base model on CPU is slow, skipping for demo speed]*"
-                pipeline_steps.append(f"**Generation:** skipped (would take ~30s on CPU)")
+                answer = f"*[{specialist} specialist: convert to GGUF for fast CPU inference]*\n\nRun: `python olympus/convert_gguf.py --specialist {specialist}`"
+                pipeline_steps.append(f"**Generation:** skipped (run convert_gguf.py first)")
 
         except Exception as e:
             answer = f"*[Generation error: {str(e)[:100]}]*"
@@ -148,7 +252,7 @@ def process_query(query, history):
     pipeline_steps.append(f"**Total:** {t_total:.0f}ms")
 
     pipeline_info = "### Pipeline\n" + "\n\n".join(pipeline_steps)
-    history = history + [(query, answer)]
+    history = history + [{"role": "user", "content": query}, {"role": "assistant", "content": answer}]
     return history, pipeline_info
 
 
@@ -163,7 +267,8 @@ A multi-specialist AI system running locally. No cloud. No API. No monthly cost.
 | Component | Status |
 |-----------|--------|
 | Router | 100% accuracy, <1ms |
-| Compiled Arithmetic | 30/30 exact, binary circuits |
+| transformer-vm | Any C program, exact, 30K tok/s |
+| Compiled Arithmetic | Fallback, 30/30 exact, zero deps |
 | E8 Retrieval | R@5=100%, 20ms |
 | MiniLM Reranking | R@1=98.5% |
 
@@ -172,10 +277,6 @@ A multi-specialist AI system running locally. No cloud. No API. No monthly cost.
 
 with gr.Blocks(
     title="Lattice — H4 Polytopic Attention",
-    theme=gr.themes.Soft(
-        primary_hue="indigo",
-        neutral_hue="slate",
-    ),
 ) as app:
 
     gr.Markdown(DESCRIPTION)
@@ -186,7 +287,6 @@ with gr.Blocks(
                 label="Lattice",
                 height=450,
                 show_label=False,
-                type="messages",
             )
 
             with gr.Row():
@@ -226,13 +326,13 @@ with gr.Blocks(
     gr.Examples(
         examples=[
             "What is 15 * 23?",
-            "(3 + 5) * (7 - 2)",
             "99 * 99 + 1",
-            "500 * 500",
+            "fib 10",
+            "prime 97",
+            "gcd 24 36",
+            "collatz 27",
             "Write a binary search in Python",
             "When was the Eiffel Tower built?",
-            "What is the golden ratio?",
-            "Hello, how are you?",
         ],
         inputs=query_input,
     )
@@ -243,5 +343,8 @@ if __name__ == '__main__':
     print("Compiled arithmetic: 30/30 exact")
     print("Router: 100% on test set")
     print(f"Specialists: {SPECIALIST_STATUS}")
+    gguf_status = gguf_engine.status()
+    gguf_ready = [k for k, v in gguf_status.items() if v != "not converted"]
+    print(f"GGUF models: {gguf_ready if gguf_ready else 'none (run convert_gguf.py after checkpoint download)'}")
     print()
-    app.launch(server_name="0.0.0.0", server_port=7860, share=False)
+    app.launch(server_name="127.0.0.1", server_port=7860, share=False)
