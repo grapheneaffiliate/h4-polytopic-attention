@@ -406,12 +406,16 @@ class TVMChain:
             validator.blocks_produced += 1
             return block
         else:
-            # Block rejected — slash the validator's stake
-            slash_amount = validator.stake // 10  # 10% slash per invalid block
+            # Block rejected — exponential slashing
+            # 1st offense: 50%. 2nd: 50% of remainder. 3 strikes = 12.5% left.
+            # A malicious validator burns through their stake in 2-3 attempts,
+            # not 10. Each failed block costs exponentially more.
+            slash_amount = validator.stake // 2  # 50% slash per invalid block
             validator.stake -= slash_amount
             validator.blocks_failed += 1
             print(f"    !!! Block REJECTED by TVM — {validator.name} slashed "
-                  f"{slash_amount} (stake now {validator.stake})")
+                  f"{slash_amount} (stake now {validator.stake}, "
+                  f"failures: {validator.blocks_failed})")
             return None
 
     # --- Censorship Recovery ---
