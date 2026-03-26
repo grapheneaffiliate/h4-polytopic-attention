@@ -79,6 +79,12 @@ class Transfer:
     amount: int  # cents
     timestamp: float = 0.0
 
+    @property
+    def tx_id(self) -> str:
+        """Deterministic hash for deduplication across serialization boundaries."""
+        data = f"{self.sender}:{self.receiver}:{self.amount}:{self.timestamp}"
+        return hashlib.sha256(data.encode()).hexdigest()
+
 
 @dataclass
 class BlockCertificate:
@@ -243,16 +249,31 @@ class TVMChain:
         )
         genesis_block.compute_hash()
 
-        # Verify genesis state
-        valid, cert, dt = self.verifier.verify_block(
-            genesis_block, self.account_names,
-            {n: 0 for n in self.account_names},  # state before = all zeros
-        )
-        # Genesis is special: balances appear from nowhere.
-        # We verify the final state integrity instead.
+        # Genesis verification: TVM verifies that the initial distribution
+        # sums to exactly GENESIS_SUPPLY and all balances are non-negative.
+        # This commits the initial state cryptographically — the genesis
+        # block hash covers the exact distribution, and any node replaying
+        # from genesis will derive the same state.
+        from transformer_vm.compilation.compile_wasm import compile_program
+        from transformer_vm.wasm.reference import load_program, run
+
+        COMPILED_DIR.mkdir(parents=True, exist_ok=True)
+        bal_str = " ".join(str(self.accounts[n]) for n in self.account_names)
+        args = f"{self.total_supply} {len(self.account_names)} {bal_str}"
+        src = str(VERIFIED_DIR / "ledger_state.c")
+        out_base = str(COMPILED_DIR / "genesis_state")
+        compile_program(src, args, out_base=out_base)
+        prog, inp = load_program(out_base + ".txt")
+        result = run(prog, inp, max_tokens=100_000_000, trace=False)
+        genesis_output = result[2].strip()
+        genesis_valid = genesis_output.startswith("VALID")
+
+        if not genesis_valid:
+            raise ValueError(f"Genesis state verification failed: {genesis_output}")
+
         genesis_block.certificate = BlockCertificate(
             block_hash=genesis_block.block_hash,
-            tvm_output="GENESIS supply_locked",
+            tvm_output=f"GENESIS {genesis_output}",
             supply_verified=self.total_supply,
             txs_verified=0,
         )
@@ -270,19 +291,40 @@ class TVMChain:
 
     def select_validator(self, block_index: int) -> Validator:
         """
-        Deterministic validator selection.
-        Uses hash of (prev_block_hash + block_index) to select.
-        Unpredictable, unmanipulable, deterministic.
+        Stake-weighted deterministic validator selection.
+
+        Each validator gets slots proportional to their effective stake.
+        Selection uses SHA256(prev_block_hash:block_index) mapped into
+        the total stake range. This gives:
+          - Unpredictable: depends on prev block hash
+          - Unmanipulable: SHA256 is preimage-resistant
+          - Deterministic: any node computes the same result
+          - Fair: probability proportional to stake
         """
         if not self.validators:
             raise ValueError("No validators registered")
+
+        # Filter to validators with positive stake (not fully slashed)
+        eligible = [v for v in self.validators if v.stake > 0]
+        if not eligible:
+            raise ValueError("No validators with remaining stake")
 
         prev_hash = self.chain[-1].block_hash if self.chain else "0" * 64
         selector = hashlib.sha256(
             f"{prev_hash}:{block_index}".encode()
         ).hexdigest()
-        idx = int(selector[:8], 16) % len(self.validators)
-        return self.validators[idx]
+
+        # Stake-weighted selection: map hash into total stake range
+        total_stake = sum(v.stake for v in eligible)
+        point = int(selector[:16], 16) % total_stake  # 64 bits of entropy
+
+        cumulative = 0
+        for v in eligible:
+            cumulative += v.stake
+            if point < cumulative:
+                return v
+
+        return eligible[-1]  # fallback (shouldn't reach here)
 
     # --- Transactions ---
 
@@ -357,17 +399,19 @@ class TVMChain:
             block.certificate = cert
             # Apply state
             self.accounts = dict(sim_state)
-            # Remove processed transactions from mempool
-            for tx in valid_txs:
-                if tx in self.mempool:
-                    self.mempool.remove(tx)
+            # Remove processed transactions from mempool (hash-based dedup)
+            processed_ids = {tx.tx_id for tx in valid_txs}
+            self.mempool = [tx for tx in self.mempool if tx.tx_id not in processed_ids]
             self.chain.append(block)
             validator.blocks_produced += 1
             return block
         else:
-            # Block rejected — validator produced invalid block
+            # Block rejected — slash the validator's stake
+            slash_amount = validator.stake // 10  # 10% slash per invalid block
+            validator.stake -= slash_amount
             validator.blocks_failed += 1
-            print(f"    !!! Block REJECTED by TVM: {cert}")
+            print(f"    !!! Block REJECTED by TVM — {validator.name} slashed "
+                  f"{slash_amount} (stake now {validator.stake})")
             return None
 
     # --- Censorship Recovery ---
@@ -386,22 +430,59 @@ class TVMChain:
     # --- Chain Verification ---
 
     def verify_chain_integrity(self) -> tuple[bool, list[str]]:
-        """Verify the entire chain: hashes link, supply constant."""
+        """
+        Verify the entire chain from genesis.
+
+        Trust model: any node can replay the chain from genesis to derive
+        the current state. Each block's TVM proof guarantees that block's
+        state transition is correct given its inputs. The chain of hashes
+        guarantees that the sequence of blocks is immutable. Together:
+
+          genesis (TVM-verified initial state)
+            → block 1 (TVM-verified state transition, links to genesis)
+            → block 2 (TVM-verified state transition, links to block 1)
+            → ...
+            → current state (derived, not asserted)
+
+        The `state_before` for block N is the `state_snapshot` of block N-1.
+        Since block N-1 was TVM-verified and hash-linked, its state_snapshot
+        is trustworthy. This forms an inductive proof:
+          - Base case: genesis state is TVM-verified
+          - Inductive step: block N's transition from block N-1's state
+            is TVM-verified
+        Therefore: the current state is proven correct.
+        """
         issues = []
 
         for i, block in enumerate(self.chain):
             # Check hash chain
             if i > 0:
                 if block.prev_hash != self.chain[i - 1].block_hash:
-                    issues.append(f"Block {i}: prev_hash mismatch")
+                    issues.append(f"Block {i}: prev_hash mismatch (chain broken)")
 
-            # Check supply
+            # Verify hash is self-consistent
+            expected_hash = block.block_hash
+            block.compute_hash()
+            if block.block_hash != expected_hash:
+                issues.append(f"Block {i}: hash tampered")
+
+            # Check supply invariant
             if block.supply != self.GENESIS_SUPPLY:
-                issues.append(f"Block {i}: supply changed!")
+                issues.append(f"Block {i}: supply changed ({block.supply} != {self.GENESIS_SUPPLY})")
 
             # Check certificate exists
             if block.certificate is None:
                 issues.append(f"Block {i}: no TVM certificate")
+
+            # Check state continuity: block N's state_snapshot should be
+            # derivable from block N-1's state_snapshot + block N's transactions
+            if i > 0:
+                prev_state = dict(self.chain[i - 1].state_snapshot)
+                for tx in block.transactions:
+                    prev_state[tx.sender] -= tx.amount
+                    prev_state[tx.receiver] += tx.amount
+                if prev_state != block.state_snapshot:
+                    issues.append(f"Block {i}: state not derivable from predecessor")
 
         return len(issues) == 0, issues
 
