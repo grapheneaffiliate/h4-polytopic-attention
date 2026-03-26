@@ -240,6 +240,7 @@ class TVMChain:
         self.mempool: list[Transfer] = []
         self.total_supply = 0
         self.account_names: list[str] = []  # ordered list for TVM
+        self.pending_accounts: list[str] = []  # created but not yet finalized
 
     # --- Genesis ---
 
@@ -350,23 +351,21 @@ class TVMChain:
         """
         Create a new account via a special transaction.
 
-        The creator pays a fee (burned — removed from supply would break
-        conservation, so fee goes to the block validator instead).
-        New account starts at zero balance. TVM verifies no supply change.
+        The account is PENDING until a block containing it is finalized.
+        If the block is rejected by TVM, the account is rolled back.
+        Creator pays a fee to the block validator (supply conserved).
         """
-        if new_account in self.accounts:
+        if new_account in self.accounts or new_account in self.pending_accounts:
             raise ValueError(f"Account '{new_account}' already exists")
         if creator not in self.accounts:
             raise ValueError(f"Unknown creator: {creator}")
         if self.accounts[creator] < fee:
             raise ValueError(f"Creator has insufficient balance for fee")
 
-        # Add account with zero balance
-        self.accounts[new_account] = 0
-        self.account_names = sorted(self.accounts.keys())
+        # Defer: account is pending until block finalization
+        self.pending_accounts.append(new_account)
 
         # Submit fee as a transfer to a special "fees" pool on next block
-        # The fee incentivizes validators to include the creation
         self.mempool.append(Transfer(
             sender=creator, receiver=creator,  # self-transfer of 0
             amount=0, fee=fee, timestamp=time.time(),
@@ -386,9 +385,10 @@ class TVMChain:
         transaction. Validators prioritize higher-fee transactions.
         Fee is transferred from sender to the block's validator.
         """
-        if sender not in self.accounts:
+        all_known = set(self.accounts.keys()) | set(self.pending_accounts)
+        if sender not in all_known:
             raise ValueError(f"Unknown sender: {sender}")
-        if receiver not in self.accounts:
+        if receiver not in all_known:
             raise ValueError(f"Unknown receiver: {receiver}")
         self.mempool.append(Transfer(
             sender=sender, receiver=receiver,
@@ -437,8 +437,13 @@ class TVMChain:
             # high-fee transactions first (rational economic behavior)
             available.sort(key=lambda t: t.fee, reverse=True)
 
-            # Simulate execution to find valid transactions
+            # Materialize pending accounts into simulation state
             sim_state = dict(self.accounts)
+            for acct in self.pending_accounts:
+                if acct not in sim_state:
+                    sim_state[acct] = 0
+
+            # Simulate execution to find valid transactions
             valid_txs = []
             total_fees = 0
 
@@ -462,8 +467,13 @@ class TVMChain:
         if not valid_txs and not censored:
             return None
 
-        # Build block
+        # Build block — include pending accounts in state_before at zero
         state_before = dict(self.accounts)
+        for acct in self.pending_accounts:
+            if acct not in state_before:
+                state_before[acct] = 0
+        # Expand account_names to include pending accounts for TVM
+        block_account_names = sorted(set(self.account_names) | set(self.pending_accounts))
         block = Block(
             index=block_index,
             prev_hash=self.chain[-1].block_hash,
@@ -477,13 +487,15 @@ class TVMChain:
 
         # TVM-verify the entire block
         valid, cert, dt_ms = self.verifier.verify_block(
-            block, self.account_names, state_before,
+            block, block_account_names, state_before,
         )
 
         if valid:
             block.certificate = cert
-            # Apply state
+            # Finalize: commit pending accounts + apply state
             self.accounts = dict(sim_state)
+            self.account_names = block_account_names
+            self.pending_accounts = []  # all pending accounts now committed
             # Remove processed transactions from mempool (hash-based dedup)
             processed_ids = {tx.tx_id for tx in valid_txs}
             self.mempool = [tx for tx in self.mempool if tx.tx_id not in processed_ids]
@@ -496,6 +508,8 @@ class TVMChain:
             slash_amount = validator.stake // 2
             validator.stake -= slash_amount
             validator.blocks_failed += 1
+            # Rollback: pending accounts are NOT committed
+            # They stay in pending_accounts for the next block attempt
             print(f"    !!! Block REJECTED by TVM — {validator.name} slashed "
                   f"{slash_amount} (stake now {validator.stake}, "
                   f"failures: {validator.blocks_failed})")
