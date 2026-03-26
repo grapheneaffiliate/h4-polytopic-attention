@@ -77,13 +77,19 @@ class Transfer:
     sender: str
     receiver: str
     amount: int  # cents
+    fee: int = 0  # transaction fee in cents, paid by sender to validator
     timestamp: float = 0.0
 
     @property
     def tx_id(self) -> str:
         """Deterministic hash for deduplication across serialization boundaries."""
-        data = f"{self.sender}:{self.receiver}:{self.amount}:{self.timestamp}"
+        data = f"{self.sender}:{self.receiver}:{self.amount}:{self.fee}:{self.timestamp}"
         return hashlib.sha256(data.encode()).hexdigest()
+
+    @property
+    def total_cost(self) -> int:
+        """Total deducted from sender: amount + fee."""
+        return self.amount + self.fee
 
 
 @dataclass
@@ -111,7 +117,7 @@ class Block:
             f"{self.index}|{self.prev_hash}|{self.timestamp}|"
             f"{self.validator}|{self.supply}|"
             + "|".join(
-                f"{tx.sender}>{tx.receiver}:{tx.amount}"
+                f"{tx.sender}>{tx.receiver}:{tx.amount}+{tx.fee}"
                 for tx in self.transactions
             )
             + "|"
@@ -163,12 +169,24 @@ class TVMVerifier:
         for name in account_names:
             parts.append(str(state_before.get(name, 0)))
 
-        # Transactions
-        parts.append(str(len(block.transactions)))
+        # Transactions — expand fees into explicit transfers so TVM can verify
+        # Each tx with a fee becomes two TVM operations:
+        #   1. sender -> receiver (amount)
+        #   2. sender -> validator (fee)
+        # This keeps supply conservation verifiable: sum(debits) == sum(credits)
+        validator_idx = name_to_idx.get(block.validator, -1)
+        tvm_txs = []
         for tx in block.transactions:
-            parts.append(str(name_to_idx[tx.sender]))
-            parts.append(str(name_to_idx[tx.receiver]))
-            parts.append(str(tx.amount))
+            if tx.amount > 0:
+                tvm_txs.append((name_to_idx[tx.sender], name_to_idx[tx.receiver], tx.amount))
+            if tx.fee > 0 and validator_idx >= 0:
+                tvm_txs.append((name_to_idx[tx.sender], validator_idx, tx.fee))
+
+        parts.append(str(len(tvm_txs)))
+        for s, r, a in tvm_txs:
+            parts.append(str(s))
+            parts.append(str(r))
+            parts.append(str(a))
 
         # Final balances
         for name in account_names:
@@ -326,53 +344,120 @@ class TVMChain:
 
         return eligible[-1]  # fallback (shouldn't reach here)
 
+    # --- Account Creation ---
+
+    def create_account(self, creator: str, new_account: str, fee: int = 100):
+        """
+        Create a new account via a special transaction.
+
+        The creator pays a fee (burned — removed from supply would break
+        conservation, so fee goes to the block validator instead).
+        New account starts at zero balance. TVM verifies no supply change.
+        """
+        if new_account in self.accounts:
+            raise ValueError(f"Account '{new_account}' already exists")
+        if creator not in self.accounts:
+            raise ValueError(f"Unknown creator: {creator}")
+        if self.accounts[creator] < fee:
+            raise ValueError(f"Creator has insufficient balance for fee")
+
+        # Add account with zero balance
+        self.accounts[new_account] = 0
+        self.account_names = sorted(self.accounts.keys())
+
+        # Submit fee as a transfer to a special "fees" pool on next block
+        # The fee incentivizes validators to include the creation
+        self.mempool.append(Transfer(
+            sender=creator, receiver=creator,  # self-transfer of 0
+            amount=0, fee=fee, timestamp=time.time(),
+        ))
+        return new_account
+
     # --- Transactions ---
 
-    def submit_transaction(self, sender: str, receiver: str, amount: int):
-        """Submit a transaction to the mempool."""
+    MINIMUM_FEE = 10  # 10 cents minimum fee (anti-spam)
+
+    def submit_transaction(self, sender: str, receiver: str, amount: int,
+                           fee: int = 0):
+        """
+        Submit a transaction to the mempool.
+
+        Fee is optional but incentivizes validators to include the
+        transaction. Validators prioritize higher-fee transactions.
+        Fee is transferred from sender to the block's validator.
+        """
         if sender not in self.accounts:
             raise ValueError(f"Unknown sender: {sender}")
         if receiver not in self.accounts:
             raise ValueError(f"Unknown receiver: {receiver}")
         self.mempool.append(Transfer(
             sender=sender, receiver=receiver,
-            amount=amount, timestamp=time.time(),
+            amount=amount, fee=fee, timestamp=time.time(),
         ))
 
     # --- Block Production ---
 
+    LIVENESS_TIMEOUT_ATTEMPTS = 3  # skip validator after N failed attempts
+
     def produce_block(self, max_tx=10) -> Optional[Block]:
         """
         Selected validator produces a block from the mempool.
+
+        Features:
+          - Fee-priority ordering: higher-fee transactions first
+          - Fee collection: validator receives fees from included txs
+          - Liveness: if selected validator can't produce, skip to next
+          - Supply conservation: fees move between accounts, never created/destroyed
+
         Returns the verified block, or None if no valid transactions.
         """
         if not self.mempool:
             return None
 
         block_index = len(self.chain)
-        validator = self.select_validator(block_index)
 
-        # Filter mempool: remove transactions the validator censors
-        available = []
-        censored = []
-        for tx in self.mempool:
-            if tx.sender in validator.censoring or tx.receiver in validator.censoring:
-                censored.append(tx)
-            else:
-                available.append(tx)
+        # Liveness: try multiple validators if the selected one can't produce
+        for skip in range(self.LIVENESS_TIMEOUT_ATTEMPTS):
+            effective_index = block_index + skip
+            validator = self.select_validator(effective_index)
 
-        if censored:
-            print(f"    ! Validator {validator.name} censoring {len(censored)} tx")
+            # Filter mempool: remove transactions the validator censors
+            available = []
+            censored = []
+            for tx in self.mempool:
+                if tx.sender in validator.censoring or tx.receiver in validator.censoring:
+                    censored.append(tx)
+                else:
+                    available.append(tx)
 
-        # Simulate execution to find valid transactions
-        sim_state = dict(self.accounts)
-        valid_txs = []
+            if censored:
+                print(f"    ! Validator {validator.name} censoring {len(censored)} tx")
 
-        for tx in available[:max_tx]:
-            if sim_state.get(tx.sender, 0) >= tx.amount and tx.amount > 0:
-                sim_state[tx.sender] -= tx.amount
-                sim_state[tx.receiver] += tx.amount
-                valid_txs.append(tx)
+            # Sort by fee descending — validators are incentivized to include
+            # high-fee transactions first (rational economic behavior)
+            available.sort(key=lambda t: t.fee, reverse=True)
+
+            # Simulate execution to find valid transactions
+            sim_state = dict(self.accounts)
+            valid_txs = []
+            total_fees = 0
+
+            for tx in available[:max_tx]:
+                cost = tx.total_cost  # amount + fee
+                if tx.amount >= 0 and sim_state.get(tx.sender, 0) >= cost and cost > 0:
+                    sim_state[tx.sender] -= cost
+                    sim_state[tx.receiver] += tx.amount
+                    # Fee goes to validator's account (supply conserved)
+                    if tx.fee > 0 and validator.name in sim_state:
+                        sim_state[validator.name] = sim_state.get(validator.name, 0) + tx.fee
+                        total_fees += tx.fee
+                    valid_txs.append(tx)
+
+            if valid_txs:
+                break  # found a validator that can produce
+
+            if skip < self.LIVENESS_TIMEOUT_ATTEMPTS - 1:
+                print(f"    ~ {validator.name} skipped (no valid txs), trying next...")
 
         if not valid_txs and not censored:
             return None
@@ -408,9 +493,7 @@ class TVMChain:
         else:
             # Block rejected — exponential slashing
             # 1st offense: 50%. 2nd: 50% of remainder. 3 strikes = 12.5% left.
-            # A malicious validator burns through their stake in 2-3 attempts,
-            # not 10. Each failed block costs exponentially more.
-            slash_amount = validator.stake // 2  # 50% slash per invalid block
+            slash_amount = validator.stake // 2
             validator.stake -= slash_amount
             validator.blocks_failed += 1
             print(f"    !!! Block REJECTED by TVM — {validator.name} slashed "
@@ -482,9 +565,17 @@ class TVMChain:
             # derivable from block N-1's state_snapshot + block N's transactions
             if i > 0:
                 prev_state = dict(self.chain[i - 1].state_snapshot)
+                # Add any new accounts (created between blocks) with zero balance
+                for acct in block.state_snapshot:
+                    if acct not in prev_state:
+                        prev_state[acct] = 0
+                # Replay transactions (amount + fees)
                 for tx in block.transactions:
-                    prev_state[tx.sender] -= tx.amount
-                    prev_state[tx.receiver] += tx.amount
+                    cost = tx.amount + tx.fee
+                    prev_state[tx.sender] = prev_state.get(tx.sender, 0) - cost
+                    prev_state[tx.receiver] = prev_state.get(tx.receiver, 0) + tx.amount
+                    if tx.fee > 0 and block.validator in prev_state:
+                        prev_state[block.validator] += tx.fee
                 if prev_state != block.state_snapshot:
                     issues.append(f"Block {i}: state not derivable from predecessor")
 
@@ -541,11 +632,15 @@ def demo():
     print()
 
     genesis = chain.genesis({
-        "Alice":    500000000,   # $5,000,000
-        "Bob":      300000000,   # $3,000,000
-        "Charlie":  200000000,   # $2,000,000
-        "Dave":     100000000,   # $1,000,000
-        "Treasury": 1000000000,  # $10,000,000
+        "Alice":          500000000,   # $5,000,000
+        "Bob":            300000000,   # $3,000,000
+        "Charlie":        200000000,   # $2,000,000
+        "Dave":           100000000,   # $1,000,000
+        "Treasury":       800000000,   # $8,000,000
+        "Validator_NYC":  50000000,    # $500,000
+        "Validator_LON":  50000000,    # $500,000
+        "Validator_TKY":  50000000,    # $500,000
+        "Validator_SIN":  50000000,    # $500,000
     })
     print(f"  Genesis block: {genesis.block_hash[:24]}...")
     chain.print_balances()
@@ -575,14 +670,14 @@ def demo():
     print("=" * 68)
 
     txs = [
-        ("Alice", "Bob", 50000000, "Alice pays Bob $500K"),
-        ("Bob", "Charlie", 25000000, "Bob pays Charlie $250K"),
-        ("Treasury", "Dave", 100000000, "Treasury distributes $1M to Dave"),
-        ("Charlie", "Alice", 10000000, "Charlie pays Alice $100K"),
+        ("Alice", "Bob", 50000000, 1000, "Alice pays Bob $500K (fee $10)"),
+        ("Bob", "Charlie", 25000000, 500, "Bob pays Charlie $250K (fee $5)"),
+        ("Treasury", "Dave", 100000000, 2000, "Treasury distributes $1M (fee $20)"),
+        ("Charlie", "Alice", 10000000, 500, "Charlie pays Alice $100K (fee $5)"),
     ]
 
-    for sender, receiver, amount, desc in txs:
-        chain.submit_transaction(sender, receiver, amount)
+    for sender, receiver, amount, fee, desc in txs:
+        chain.submit_transaction(sender, receiver, amount, fee=fee)
         print(f"  Submitted: {desc}")
 
     print(f"\n  Mempool: {len(chain.mempool)} transactions")
@@ -609,8 +704,8 @@ def demo():
     # Make NYC censor Dave
     chain.validators[0].censoring = ["Dave"]
 
-    chain.submit_transaction("Dave", "Alice", 50000000, )
-    chain.submit_transaction("Alice", "Bob", 10000000)
+    chain.submit_transaction("Dave", "Alice", 50000000, fee=1000)
+    chain.submit_transaction("Alice", "Bob", 10000000, fee=500)
     print("  Submitted: Dave -> Alice $500K (will be censored by some validators)")
     print("  Submitted: Alice -> Bob $100K (normal)")
 
@@ -647,10 +742,56 @@ def demo():
     chain.print_balances()
 
     # ---------------------------------------------------------------
-    # STEP 5: MONETARY POLICY ENFORCEMENT
+    # STEP 5: ACCOUNT CREATION
     # ---------------------------------------------------------------
     print(f"\n{'='*68}")
-    print("  STEP 5: MONETARY POLICY — Can Anyone Create Money?")
+    print("  STEP 5: ACCOUNT CREATION — New Participants")
+    print("=" * 68)
+    print("  Eve joins the network. Alice sponsors her account.\n")
+
+    chain.create_account("Alice", "Eve", fee=1000)  # $10 fee
+    chain.submit_transaction("Alice", "Eve", 5000000, fee=500)  # Send $50K
+    print("  Created account: Eve (sponsored by Alice, $10 fee)")
+    print("  Submitted: Alice -> Eve $50K")
+
+    block = chain.produce_block()
+    if block:
+        print(f"  Block {block.index} by {block.validator}: {len(block.transactions)} txs")
+        print(f"  TVM proof: {block.certificate.tvm_output}")
+
+    chain.print_balances()
+
+    supply_check = sum(chain.accounts.values())
+    print(f"\n  Supply after account creation: ${supply_check//100:,}")
+    print(f"  Genesis cap:                   ${chain.GENESIS_SUPPLY//100:,}")
+    print(f"  Conserved: {supply_check == chain.GENESIS_SUPPLY}")
+    print(f"  (New accounts don't create money — they receive it from existing accounts)")
+
+    # ---------------------------------------------------------------
+    # STEP 6: TRANSACTION FEES
+    # ---------------------------------------------------------------
+    print(f"\n{'='*68}")
+    print("  STEP 6: TRANSACTION FEES — Validator Economics")
+    print("=" * 68)
+    print("  Fees incentivize validators to include transactions.")
+    print("  Fees flow from sender to validator — supply conserved.\n")
+
+    # Show validator balances
+    for v in chain.validators:
+        bal = chain.accounts.get(v.name, 0)
+        print(f"  {v.name}: ${bal//100:,}.{bal%100:02d} "
+              f"(produced {v.blocks_produced} blocks)")
+
+    total_fees = sum(chain.accounts.get(v.name, 0) - 50000000
+                     for v in chain.validators)
+    print(f"\n  Total fees earned by validators: ${total_fees//100:,}.{abs(total_fees)%100:02d}")
+    print(f"  Fee model: sender pays fee, validator collects. Zero-sum.")
+
+    # ---------------------------------------------------------------
+    # STEP 7: MONETARY POLICY ENFORCEMENT
+    # ---------------------------------------------------------------
+    print(f"\n{'='*68}")
+    print("  STEP 7: MONETARY POLICY — Can Anyone Create Money?")
     print("=" * 68)
 
     supply_before = sum(chain.accounts.values())
@@ -665,10 +806,10 @@ def demo():
     print(f"  No validator, no attacker, no government can inflate the supply.")
 
     # ---------------------------------------------------------------
-    # STEP 6: IMMUTABLE HISTORY
+    # STEP 8: IMMUTABLE HISTORY
     # ---------------------------------------------------------------
     print(f"\n{'='*68}")
-    print("  STEP 6: IMMUTABLE HISTORY — Chain Integrity")
+    print("  STEP 8: IMMUTABLE HISTORY — Chain Integrity")
     print("=" * 68)
 
     valid, issues = chain.verify_chain_integrity()
@@ -684,7 +825,7 @@ def demo():
               f"<- {block.prev_hash[:20]}...")
 
     # ---------------------------------------------------------------
-    # STEP 7: FULL CHAIN PRINTOUT
+    # STEP 9: FULL CHAIN PRINTOUT
     # ---------------------------------------------------------------
     print(f"\n{'='*68}")
     print("  FULL CHAIN")
