@@ -28,6 +28,9 @@ try:
 except ImportError:
     tvm_engine = None
 from code_verifier import verify_code_response, build_fix_prompt, check_output_properties
+from auto_compiler import AutoCompiler
+
+auto_compiler = AutoCompiler()
 
 # Initialize components
 router = OlympusRouter()
@@ -182,23 +185,35 @@ def process_query(query, history):
                             else:
                                 failure_str = "; ".join(props['failures'])
                                 pipeline_steps.append(f"**Properties:** FAILED\n  `{failure_str}`")
-                                # Try fix with property violation as error
-                                fix_prompt = build_fix_prompt(query, verification['code'], f"Output property violation: {failure_str}")
-                                try:
-                                    fix_answer = gguf_engine.generate(fix_prompt, specialist='code')
-                                    fix_check = verify_code_response(fix_answer)
-                                    if fix_check['has_code'] and fix_check['verified']:
-                                        fix_props = check_output_properties(query, fix_check['execution']['stdout'])
-                                        if fix_props['passed']:
-                                            answer = fix_answer
-                                            pipeline_steps.append(f"**Fix:** corrected! Output: `{fix_check['execution']['stdout'][:200]}`")
-                                        else:
-                                            answer += f"\n\n---\n*Property check failed: {failure_str}*"
-                                            pipeline_steps.append(f"**Fix:** second attempt still violates properties")
+
+                                # AUTO-COMPILER: log failure and check for compiled tool
+                                ac_result = auto_compiler.handle_failure(
+                                    query=query,
+                                    code=verification['code'],
+                                    failure=failure_str,
+                                )
+                                if ac_result['handled'] and ac_result.get('tool_name'):
+                                    # Try compiled tool for the correct answer
+                                    compiled = auto_compiler.try_compiled_tool(query)
+                                    if compiled:
+                                        answer += (
+                                            f"\n\n---\n"
+                                            f"**Compiled result (exact):** `{compiled['result']}`\n"
+                                            f"*Auto-compiled via {compiled.get('compiled_tool', 'transformer-vm')}*"
+                                        )
+                                        pipeline_steps.append(
+                                            f"**Auto-compile:** routed to `{ac_result['tool_name']}` (exact)"
+                                        )
                                     else:
-                                        answer += f"\n\n---\n*Property check failed: {failure_str}*"
-                                except Exception:
-                                    answer += f"\n\n---\n*Property check failed: {failure_str}*"
+                                        pipeline_steps.append(
+                                            f"**Auto-compile:** tool `{ac_result['tool_name']}` registered but execution failed"
+                                        )
+                                else:
+                                    pipeline_steps.append(
+                                        f"**Auto-compile:** {ac_result['action']}"
+                                    )
+
+                                answer += f"\n\n---\n*Property check failed: {failure_str}*"
                         elif exec_result.get('stdout'):
                             pipeline_steps.append(f"**Verify:** code ran OK\n  Output: `{exec_result['stdout'][:200]}`")
 
