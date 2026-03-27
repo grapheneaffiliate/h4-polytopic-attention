@@ -1,0 +1,28 @@
+{
+  "e8_roots": 240,
+  "triples_total": 6720,
+  "triples_surviving": 6720,
+  "triples_broken": 0,
+  "survival_rate": 1.0,
+  "unique_h4_points": 240,
+  "addition_graph_triangles": 2240,
+  "addition_graph_edges": 6720,
+  "degree_distribution": {
+    "56": 240
+  },
+  "ip_distribution_e8": {
+    "-8": 120,
+    "-4": 6720,
+    "0": 15120,
+    "4": 6720
+  },
+  "key_integers": {
+    "E8 roots": 240,
+    "Root addition triples": 6720,
+    "Triples surviving H4 projection": 6720,
+    "Triples broken by projection": 0,
+    "Unique H4 projected points": 240,
+    "Addition graph triangles": 2240,
+    "Addition graph edges": 6720
+  }
+}
