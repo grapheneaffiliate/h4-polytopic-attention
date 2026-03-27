@@ -364,3 +364,10 @@ with open(out_path, "w") as f:
     json.dump(results, f, indent=2)
 print(f"\n  Results saved to {out_path}")
 print(f"  Total time: {time.time() - t0:.1f}s")
+
+
+# ── Cross-reference ──────────────────────────────────────────────
+# The Galois conjugation theorem discovered here is formally verified
+# in Lean 4 at: github.com/grapheneaffiliate/gsm-lean
+# File: GSMLean/GaloisConjugation.lean
+# All 6 theorems verified via native_decide.
