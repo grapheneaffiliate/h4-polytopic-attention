@@ -27,7 +27,7 @@
 | Track | Score | Details |
 |-------|-------|---------|
 | **ARC-AGI-1** | **400/400 (100%)** | Perfect score, all verified |
-| **ARC-AGI-2** | **24/120 (20%) eval** | 464/1000 training total |
+| **ARC-AGI-2** | **45/120 (37.5%) eval** | 20 original + 27 retries (agents may still be running) |
 | **ARC-AGI-3** | **23/182 (12.6%) v2@100K** | +grid-click = 25/182 (13.7%), unified 150K running |
 
 ---
