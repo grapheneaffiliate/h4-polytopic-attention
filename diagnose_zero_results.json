@@ -1,0 +1,1596 @@
+[
+  {
+    "game_id": "cd82-fb555c5d",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 6,
+    "unique_colors": [
+      0,
+      2,
+      3,
+      4,
+      5,
+      15
+    ],
+    "available_action_types": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "action_type_counts": {
+      "4": 24,
+      "2": 22,
+      "5": 17,
+      "6": 9803,
+      "1": 16,
+      "3": 19
+    },
+    "state_changes": 52,
+    "no_change": 9749,
+    "states_explored": 37,
+    "group_progression": [],
+    "game_overs": 99,
+    "segments_at_start": 15,
+    "group_sizes_at_start": [
+      3,
+      8,
+      0,
+      3,
+      1
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        37,
+        37,
+        0
+      ],
+      [
+        2000,
+        37,
+        37,
+        0
+      ],
+      [
+        3000,
+        37,
+        37,
+        0
+      ],
+      [
+        4000,
+        37,
+        37,
+        0
+      ],
+      [
+        5000,
+        37,
+        37,
+        0
+      ],
+      [
+        6000,
+        37,
+        37,
+        0
+      ],
+      [
+        7000,
+        37,
+        37,
+        0
+      ],
+      [
+        8000,
+        37,
+        37,
+        0
+      ],
+      [
+        9000,
+        37,
+        37,
+        0
+      ],
+      [
+        10000,
+        37,
+        37,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 179,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.005305581063156821,
+    "elapsed_s": 5.1
+  },
+  {
+    "game_id": "cn04-65d47d14",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 5,
+    "unique_colors": [
+      0,
+      4,
+      8,
+      10,
+      14
+    ],
+    "available_action_types": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "action_type_counts": {
+      "6": 5917,
+      "2": 772,
+      "5": 819,
+      "1": 807,
+      "4": 805,
+      "3": 814
+    },
+    "state_changes": 6569,
+    "no_change": 3298,
+    "states_explored": 5614,
+    "group_progression": [],
+    "game_overs": 66,
+    "segments_at_start": 9,
+    "group_sizes_at_start": [
+      6,
+      1,
+      1,
+      1,
+      0
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        641,
+        641,
+        0
+      ],
+      [
+        2000,
+        1277,
+        1277,
+        0
+      ],
+      [
+        3000,
+        1877,
+        1877,
+        0
+      ],
+      [
+        4000,
+        2491,
+        2491,
+        0
+      ],
+      [
+        5000,
+        3061,
+        3061,
+        0
+      ],
+      [
+        6000,
+        3609,
+        3609,
+        0
+      ],
+      [
+        7000,
+        4119,
+        4119,
+        0
+      ],
+      [
+        8000,
+        4649,
+        4649,
+        0
+      ],
+      [
+        9000,
+        5123,
+        5123,
+        0
+      ],
+      [
+        10000,
+        5614,
+        5614,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9997,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.6657545353197527,
+    "elapsed_s": 69.8
+  },
+  {
+    "game_id": "dc22-4c9bff3e",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 6,
+    "unique_colors": [
+      0,
+      2,
+      3,
+      4,
+      5,
+      8,
+      9,
+      11,
+      13,
+      14
+    ],
+    "available_action_types": [
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "action_type_counts": {
+      "6": 9793,
+      "4": 32,
+      "2": 33,
+      "3": 32,
+      "1": 32
+    },
+    "state_changes": 227,
+    "no_change": 9616,
+    "states_explored": 48,
+    "group_progression": [],
+    "game_overs": 78,
+    "segments_at_start": 40,
+    "group_sizes_at_start": [
+      7,
+      16,
+      8,
+      6,
+      3
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        48,
+        48,
+        0
+      ],
+      [
+        2000,
+        48,
+        48,
+        0
+      ],
+      [
+        3000,
+        48,
+        48,
+        0
+      ],
+      [
+        4000,
+        48,
+        48,
+        0
+      ],
+      [
+        5000,
+        48,
+        48,
+        0
+      ],
+      [
+        6000,
+        48,
+        48,
+        0
+      ],
+      [
+        7000,
+        48,
+        48,
+        0
+      ],
+      [
+        8000,
+        48,
+        48,
+        0
+      ],
+      [
+        9000,
+        48,
+        48,
+        0
+      ],
+      [
+        10000,
+        48,
+        48,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9893,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.023062074570760947,
+    "elapsed_s": 9.2
+  },
+  {
+    "game_id": "g50t-5849a774",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 7,
+    "unique_colors": [
+      0,
+      1,
+      5,
+      8,
+      9
+    ],
+    "available_action_types": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "action_type_counts": {
+      "3": 2018,
+      "5": 1972,
+      "2": 1986,
+      "4": 2003,
+      "1": 1945
+    },
+    "state_changes": 5244,
+    "no_change": 4603,
+    "states_explored": 118,
+    "group_progression": [],
+    "game_overs": 76,
+    "segments_at_start": 14,
+    "group_sizes_at_start": [
+      2,
+      2,
+      2,
+      3,
+      5
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        56,
+        56,
+        0
+      ],
+      [
+        2000,
+        73,
+        73,
+        0
+      ],
+      [
+        3000,
+        85,
+        85,
+        0
+      ],
+      [
+        4000,
+        101,
+        101,
+        0
+      ],
+      [
+        5000,
+        104,
+        104,
+        0
+      ],
+      [
+        6000,
+        105,
+        105,
+        0
+      ],
+      [
+        7000,
+        108,
+        108,
+        0
+      ],
+      [
+        8000,
+        114,
+        114,
+        0
+      ],
+      [
+        9000,
+        118,
+        118,
+        0
+      ],
+      [
+        10000,
+        118,
+        118,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9999,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.5325479841576115,
+    "elapsed_s": 14.2
+  },
+  {
+    "game_id": "ka59-9f096b4a",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 7,
+    "unique_colors": [
+      0,
+      1,
+      2,
+      4,
+      5,
+      14,
+      15
+    ],
+    "available_action_types": [
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "action_type_counts": {
+      "6": 7736,
+      "3": 655,
+      "4": 492,
+      "1": 481,
+      "2": 537
+    },
+    "state_changes": 2289,
+    "no_change": 7512,
+    "states_explored": 920,
+    "group_progression": [],
+    "game_overs": 99,
+    "segments_at_start": 14,
+    "group_sizes_at_start": [
+      3,
+      7,
+      0,
+      3,
+      1
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        297,
+        324,
+        0
+      ],
+      [
+        2000,
+        505,
+        579,
+        0
+      ],
+      [
+        3000,
+        694,
+        836,
+        0
+      ],
+      [
+        4000,
+        760,
+        920,
+        0
+      ],
+      [
+        5000,
+        760,
+        920,
+        0
+      ],
+      [
+        6000,
+        760,
+        920,
+        0
+      ],
+      [
+        7000,
+        760,
+        920,
+        0
+      ],
+      [
+        8000,
+        760,
+        920,
+        0
+      ],
+      [
+        9000,
+        760,
+        920,
+        0
+      ],
+      [
+        10000,
+        760,
+        920,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9901,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.23354759718396081,
+    "elapsed_s": 13.5
+  },
+  {
+    "game_id": "lf52-271a04aa",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 10,
+    "unique_colors": [
+      0,
+      1,
+      5,
+      9,
+      10,
+      14
+    ],
+    "available_action_types": [
+      1,
+      2,
+      3,
+      4,
+      6,
+      7
+    ],
+    "action_type_counts": {
+      "6": 9836,
+      "4": 2,
+      "3": 3,
+      "2": 3,
+      "1": 3
+    },
+    "state_changes": 164,
+    "no_change": 9529,
+    "states_explored": 3,
+    "group_progression": [],
+    "game_overs": 153,
+    "segments_at_start": 59,
+    "group_sizes_at_start": [
+      5,
+      28,
+      3,
+      22,
+      1
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        2,
+        3,
+        0
+      ],
+      [
+        2000,
+        2,
+        3,
+        0
+      ],
+      [
+        3000,
+        2,
+        3,
+        0
+      ],
+      [
+        4000,
+        2,
+        3,
+        0
+      ],
+      [
+        5000,
+        2,
+        3,
+        0
+      ],
+      [
+        6000,
+        2,
+        3,
+        0
+      ],
+      [
+        7000,
+        2,
+        3,
+        0
+      ],
+      [
+        8000,
+        2,
+        3,
+        0
+      ],
+      [
+        9000,
+        2,
+        3,
+        0
+      ],
+      [
+        10000,
+        2,
+        3,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9946,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.016919426390178478,
+    "elapsed_s": 11.2
+  },
+  {
+    "game_id": "re86-4e57566e",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 8,
+    "unique_colors": [
+      0,
+      4,
+      5,
+      9,
+      11,
+      15
+    ],
+    "available_action_types": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "action_type_counts": {
+      "2": 1983,
+      "3": 1945,
+      "1": 2061,
+      "4": 1987,
+      "5": 1925
+    },
+    "state_changes": 9730,
+    "no_change": 71,
+    "states_explored": 5807,
+    "group_progression": [],
+    "game_overs": 99,
+    "segments_at_start": 24,
+    "group_sizes_at_start": [
+      1,
+      6,
+      10,
+      2,
+      5
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        677,
+        677,
+        0
+      ],
+      [
+        2000,
+        1326,
+        1326,
+        0
+      ],
+      [
+        3000,
+        1942,
+        1942,
+        0
+      ],
+      [
+        4000,
+        2567,
+        2567,
+        0
+      ],
+      [
+        5000,
+        3152,
+        3152,
+        0
+      ],
+      [
+        6000,
+        3750,
+        3750,
+        0
+      ],
+      [
+        7000,
+        4270,
+        4270,
+        0
+      ],
+      [
+        8000,
+        4770,
+        4773,
+        0
+      ],
+      [
+        9000,
+        5250,
+        5253,
+        0
+      ],
+      [
+        10000,
+        5804,
+        5807,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9997,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.9927558412406897,
+    "elapsed_s": 80.6
+  },
+  {
+    "game_id": "sb26-7fbdac44",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 8,
+    "unique_colors": [
+      0,
+      2,
+      4,
+      5,
+      8,
+      9,
+      11,
+      14,
+      15
+    ],
+    "available_action_types": [
+      5,
+      6,
+      7
+    ],
+    "action_type_counts": {
+      "6": 9486,
+      "5": 496
+    },
+    "state_changes": 8181,
+    "no_change": 1782,
+    "states_explored": 2191,
+    "group_progression": [],
+    "game_overs": 18,
+    "segments_at_start": 26,
+    "group_sizes_at_start": [
+      9,
+      14,
+      0,
+      3,
+      0
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        460,
+        465,
+        0
+      ],
+      [
+        2000,
+        937,
+        947,
+        0
+      ],
+      [
+        3000,
+        1380,
+        1395,
+        0
+      ],
+      [
+        4000,
+        1782,
+        1807,
+        0
+      ],
+      [
+        5000,
+        2161,
+        2191,
+        0
+      ],
+      [
+        6000,
+        2161,
+        2191,
+        0
+      ],
+      [
+        7000,
+        2161,
+        2191,
+        0
+      ],
+      [
+        8000,
+        2161,
+        2191,
+        0
+      ],
+      [
+        9000,
+        2161,
+        2191,
+        0
+      ],
+      [
+        10000,
+        2161,
+        2191,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9999,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.8211382113821138,
+    "elapsed_s": 28.7
+  },
+  {
+    "game_id": "sc25-f9b21a2f",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 6,
+    "unique_colors": [
+      0,
+      2,
+      3,
+      5,
+      9,
+      10,
+      14,
+      15
+    ],
+    "available_action_types": [
+      1,
+      2,
+      3,
+      4,
+      6
+    ],
+    "action_type_counts": {
+      "4": 89,
+      "6": 9509,
+      "2": 95,
+      "1": 101,
+      "3": 84
+    },
+    "state_changes": 6060,
+    "no_change": 3695,
+    "states_explored": 154,
+    "group_progression": [
+      [
+        309,
+        1
+      ]
+    ],
+    "game_overs": 122,
+    "segments_at_start": 23,
+    "group_sizes_at_start": [
+      8,
+      13,
+      0,
+      1,
+      1
+    ],
+    "final_group": 1,
+    "frontier_history": [
+      [
+        1000,
+        149,
+        149,
+        1
+      ],
+      [
+        2000,
+        154,
+        154,
+        1
+      ],
+      [
+        3000,
+        154,
+        154,
+        1
+      ],
+      [
+        4000,
+        154,
+        154,
+        1
+      ],
+      [
+        5000,
+        154,
+        154,
+        1
+      ],
+      [
+        6000,
+        154,
+        154,
+        1
+      ],
+      [
+        7000,
+        154,
+        154,
+        1
+      ],
+      [
+        8000,
+        154,
+        154,
+        1
+      ],
+      [
+        9000,
+        154,
+        154,
+        1
+      ],
+      [
+        10000,
+        154,
+        154,
+        1
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9991,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.6212198872373142,
+    "elapsed_s": 18.1
+  },
+  {
+    "game_id": "sk48-41055498",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 8,
+    "unique_colors": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+      9,
+      14
+    ],
+    "available_action_types": [
+      1,
+      2,
+      3,
+      4,
+      6,
+      7
+    ],
+    "action_type_counts": {
+      "6": 9990,
+      "3": 3,
+      "4": 3,
+      "2": 3,
+      "1": 1
+    },
+    "state_changes": 8,
+    "no_change": 9991,
+    "states_explored": 5,
+    "group_progression": [],
+    "game_overs": 0,
+    "segments_at_start": 46,
+    "group_sizes_at_start": [
+      10,
+      13,
+      0,
+      23,
+      0
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        5,
+        5,
+        0
+      ],
+      [
+        2000,
+        5,
+        5,
+        0
+      ],
+      [
+        3000,
+        5,
+        5,
+        0
+      ],
+      [
+        4000,
+        5,
+        5,
+        0
+      ],
+      [
+        5000,
+        5,
+        5,
+        0
+      ],
+      [
+        6000,
+        5,
+        5,
+        0
+      ],
+      [
+        7000,
+        5,
+        5,
+        0
+      ],
+      [
+        8000,
+        5,
+        5,
+        0
+      ],
+      [
+        9000,
+        5,
+        5,
+        0
+      ],
+      [
+        10000,
+        5,
+        5,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 32,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.0008000800080008001,
+    "elapsed_s": 4.9
+  },
+  {
+    "game_id": "su15-4c352900",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 9,
+    "unique_colors": [
+      0,
+      3,
+      4,
+      5,
+      9,
+      15
+    ],
+    "available_action_types": [
+      6,
+      7
+    ],
+    "action_type_counts": {
+      "6": 9853,
+      "7": 12
+    },
+    "state_changes": 3156,
+    "no_change": 6572,
+    "states_explored": 2481,
+    "group_progression": [
+      [
+        1,
+        1
+      ],
+      [
+        6,
+        3
+      ],
+      [
+        508,
+        0
+      ],
+      [
+        516,
+        1
+      ],
+      [
+        517,
+        2
+      ]
+    ],
+    "game_overs": 135,
+    "segments_at_start": 28,
+    "group_sizes_at_start": [
+      1,
+      2,
+      0,
+      20,
+      5
+    ],
+    "final_group": 2,
+    "frontier_history": [
+      [
+        1000,
+        100,
+        100,
+        2
+      ],
+      [
+        2000,
+        340,
+        342,
+        2
+      ],
+      [
+        3000,
+        596,
+        601,
+        2
+      ],
+      [
+        4000,
+        825,
+        832,
+        2
+      ],
+      [
+        5000,
+        1097,
+        1107,
+        2
+      ],
+      [
+        6000,
+        1374,
+        1387,
+        2
+      ],
+      [
+        7000,
+        1667,
+        1685,
+        2
+      ],
+      [
+        8000,
+        1922,
+        1943,
+        2
+      ],
+      [
+        9000,
+        2203,
+        2228,
+        2
+      ],
+      [
+        10000,
+        2452,
+        2481,
+        2
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9999,
+    "actions_used": 10000,
+    "levels_completed": 1,
+    "state_change_rate": 0.32442434210526316,
+    "elapsed_s": 34.4
+  },
+  {
+    "game_id": "wa30-ee6fef47",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 9,
+    "unique_colors": [
+      0,
+      1,
+      2,
+      4,
+      7,
+      9,
+      14
+    ],
+    "available_action_types": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "action_type_counts": {
+      "2": 2008,
+      "5": 2013,
+      "3": 1992,
+      "1": 1958,
+      "4": 1980
+    },
+    "state_changes": 6134,
+    "no_change": 3767,
+    "states_explored": 1444,
+    "group_progression": [],
+    "game_overs": 49,
+    "segments_at_start": 12,
+    "group_sizes_at_start": [
+      5,
+      4,
+      0,
+      2,
+      1
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        346,
+        346,
+        0
+      ],
+      [
+        2000,
+        574,
+        574,
+        0
+      ],
+      [
+        3000,
+        677,
+        677,
+        0
+      ],
+      [
+        4000,
+        877,
+        877,
+        0
+      ],
+      [
+        5000,
+        995,
+        995,
+        0
+      ],
+      [
+        6000,
+        1037,
+        1037,
+        0
+      ],
+      [
+        7000,
+        1220,
+        1220,
+        0
+      ],
+      [
+        8000,
+        1370,
+        1370,
+        0
+      ],
+      [
+        9000,
+        1424,
+        1424,
+        0
+      ],
+      [
+        10000,
+        1444,
+        1444,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9999,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.6195333804666195,
+    "elapsed_s": 16.9
+  },
+  {
+    "game_id": "r11l-aa269680",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 6,
+    "unique_colors": [
+      0,
+      1,
+      2,
+      3,
+      5,
+      6,
+      15
+    ],
+    "available_action_types": [
+      6
+    ],
+    "action_type_counts": {
+      "6": 9837
+    },
+    "state_changes": 9673,
+    "no_change": 0,
+    "states_explored": 60,
+    "group_progression": [],
+    "game_overs": 163,
+    "segments_at_start": 38,
+    "group_sizes_at_start": [
+      1,
+      5,
+      15,
+      17,
+      0
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        1,
+        60,
+        0
+      ],
+      [
+        2000,
+        1,
+        60,
+        0
+      ],
+      [
+        3000,
+        1,
+        60,
+        0
+      ],
+      [
+        4000,
+        1,
+        60,
+        0
+      ],
+      [
+        5000,
+        1,
+        60,
+        0
+      ],
+      [
+        6000,
+        1,
+        60,
+        0
+      ],
+      [
+        7000,
+        1,
+        60,
+        0
+      ],
+      [
+        8000,
+        1,
+        60,
+        0
+      ],
+      [
+        9000,
+        1,
+        60,
+        0
+      ],
+      [
+        10000,
+        1,
+        60,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9999,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 1.0,
+    "elapsed_s": 4.9
+  },
+  {
+    "game_id": "tu93-2b534c15",
+    "grid_shape": [
+      64,
+      64
+    ],
+    "total_levels": 9,
+    "unique_colors": [
+      0,
+      2,
+      4,
+      5,
+      6,
+      9,
+      14
+    ],
+    "available_action_types": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "action_type_counts": {
+      "3": 2462,
+      "2": 2480,
+      "4": 2405,
+      "1": 2457
+    },
+    "state_changes": 4238,
+    "no_change": 5369,
+    "states_explored": 50,
+    "group_progression": [],
+    "game_overs": 196,
+    "segments_at_start": 68,
+    "group_sizes_at_start": [
+      2,
+      63,
+      0,
+      2,
+      1
+    ],
+    "final_group": 0,
+    "frontier_history": [
+      [
+        1000,
+        37,
+        37,
+        0
+      ],
+      [
+        2000,
+        37,
+        37,
+        0
+      ],
+      [
+        3000,
+        46,
+        46,
+        0
+      ],
+      [
+        4000,
+        46,
+        46,
+        0
+      ],
+      [
+        5000,
+        46,
+        46,
+        0
+      ],
+      [
+        6000,
+        46,
+        46,
+        0
+      ],
+      [
+        7000,
+        46,
+        46,
+        0
+      ],
+      [
+        8000,
+        46,
+        46,
+        0
+      ],
+      [
+        9000,
+        50,
+        50,
+        0
+      ],
+      [
+        10000,
+        50,
+        50,
+        0
+      ]
+    ],
+    "unique_states_per_1k": [],
+    "last_new_state_at": 9994,
+    "actions_used": 10000,
+    "levels_completed": 0,
+    "state_change_rate": 0.44113667117726657,
+    "elapsed_s": 6.1
+  }
+]
