@@ -1,7 +1,24 @@
 # Session Handoff — ARC-AGI Self-Compiling Intelligence
 
-**Date:** 2026-03-28 (sessions 1+2+3)
-**Status:** AGI-1 100%, AGI-2 20% eval, AGI-3 pushing past 12.1%
+**Date:** 2026-03-28 (sessions 1+2+3, session 3 ongoing)
+**Status:** AGI-1 100%, AGI-2 20%+ eval (retries running), AGI-3 12.6%→13.7% (unified 150K running)
+
+---
+
+## ACTIVE RIGHT NOW (session 3 end-state)
+
+### Running Tasks
+1. **Unified 150K benchmark** — all 25 AGI-3 games at 150K actions (background)
+   - Check: `cat /c/Users/atchi/AppData/Local/Temp/claude/.../tasks/bilg1wa63.output | grep -E '^[a-z].*:|^TOTAL'`
+2. **10 AGI-2 retry agents** — 100 unsolved eval tasks, 10 per agent
+   - Output: `data/arc2_solutions_retry{4-13}.json`
+3. **Fine-tune data READY** — `data/arc_finetune_all.jsonl` (519 entries, 2.1MB)
+
+### What To Do When Tasks Complete
+- **150K benchmark finishes**: Record total score. If >25 levels, update scores.
+- **AGI-2 retries finish**: Count new solutions: `py -c "import json,glob; s=set(); [s.update(json.load(open(f)).keys()) for f in glob.glob('data/arc2_solutions_*.json')]; print(len(s))"`
+- **Commit all new solution files**: `git add -f data/arc2_solutions_retry*.json && git commit && git push`
+- **Fine-tune**: Upload `data/arc_finetune_all.jsonl` to RunPod, train Qwen-3B or SmolLM-3B
 
 ---
 
@@ -11,7 +28,7 @@
 |-------|-------|---------|
 | **ARC-AGI-1** | **400/400 (100%)** | Perfect score, all verified |
 | **ARC-AGI-2** | **24/120 (20%) eval** | 464/1000 training total |
-| **ARC-AGI-3** | **22/182 (12.1%) session 2** | Session 3: v2@100K running, v3 grid-click breakthrough |
+| **ARC-AGI-3** | **23/182 (12.6%) v2@100K** | +grid-click = 25/182 (13.7%), unified 150K running |
 
 ---
 
