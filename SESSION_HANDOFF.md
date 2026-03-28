@@ -31,9 +31,10 @@
 - Focus on sk48 (316 states at 20K with grid-click, depth=125 — nearly cracking)
 
 ### 2. Push AGI-2 Higher (38%→50%+)
-- 74 unsolved eval tasks remain (was 100, solved 26)
-- Re-run retry agents with different prompting strategies
-- Try each unsolved task individually with deeper analysis
+- 74 unsolved eval tasks remain (was 100, solved 26 unique)
+- Retry solution files: `data/arc2_solutions_retry{4-13}.json` (28 raw, 26 unique after dedup)
+- Re-run on remaining 74 with different prompting (deeper analysis, print grids, 10+ hypotheses)
+- Hardest tasks identified by agents: spirals, path tracing, multi-step folding, nested frames
 
 ### 3. Fine-Tune 3B Model for Kaggle
 - Data ready: `data/arc_finetune_all.jsonl` (519 entries, 221 with Python code)
@@ -53,7 +54,7 @@
 | Track | Score | Details |
 |-------|-------|---------|
 | **ARC-AGI-1** | **400/400 (100%)** | Perfect score, all verified |
-| **ARC-AGI-2** | **46/120 (38.3%) eval** | 20 original + 26 retries, 544 total solutions |
+| **ARC-AGI-2** | **46/120 (38.3%) eval** | 20 original + 26 unique retries (10 parallel agents) |
 | **ARC-AGI-3** | **23/182 (12.6%)** | Unified@150K, grid-click unlocks cd82+lf52 |
 
 ---
