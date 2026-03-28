@@ -31,15 +31,25 @@ Games that had 0 levels with 3-9 states explored were STUCK because segmentation
 - **cd82**: 0 → **1/6 levels** (grid_step=4, 256 click points, only 5K actions!)
 - **sk48**: 0 → 316 states explored (was 5), depth=125. Needs more budget to crack.
 
-### v2 100K Benchmark Results (IN PROGRESS — still running when session ended)
+### v2 100K Benchmark Results (COMPLETE)
 
-Results so far (15/25 games completed):
+**TOTAL: 23/182 levels (12.6%)** — +1 over v1's 22 levels at 91K
 ```
-ar25: 2/8, bp35: 1/9, cd82: 0/6, cn04: 1/5, dc22: 0/6
-ft09: 2/6, g50t: 0/7, ka59: 0/7, lf52: 0/10, lp85: 5/8
-ls20: 1/7, m0r0: 2/6, r11l: 0/6, re86: 0/8, s5i5: 1/8
-(10 more games pending: sb26, sc25, sk48, sp80, su15, tn36, tr87, tu93, vc33, wa30)
+ar25: 2/8   bp35: 1/9   cd82: 0/6   cn04: 1/5*  dc22: 0/6
+ft09: 2/6*  g50t: 0/7   ka59: 0/7   lf52: 0/10  lp85: 5/8
+ls20: 1/7   m0r0: 2/6   r11l: 0/6   re86: 0/8   s5i5: 1/8
+sb26: 0/8   sc25: 0/6   sk48: 0/8   sp80: 2/6   su15: 1/9*
+tn36: 1/7   tr87: 0/6   tu93: 1/9*  vc33: 3/7   wa30: 0/9
+(* = newly solved vs v1)
 ```
+
+### Unified Agent (v2+v3 merged)
+`olympus/arc3/explorer_unified.py` — auto-switches to grid-click when stuck.
+**Projected score: 25/182 (13.7%)** = 23 from v2 + 2 from grid-click (lf52, cd82)
+**This beats 3rd place's 12.58%.**
+
+Unified 150K benchmark was launched at end of session 3 (background task).
+Check: `cat /tmp/.../tasks/bilg1wa63.output | grep -E '^[a-z].*:|^TOTAL'`
 
 Running total: 15 levels from 15 games. Remaining 10 games typically add 7-10 more.
 
