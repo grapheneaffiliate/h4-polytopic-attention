@@ -20,3 +20,22 @@ olympus/wasm_tools/compiled/
 
 # Local Claude Code settings
 .claude/settings.local.json
+
+# Cloned reference repos (not our code)
+ARC-AGI-2/
+ARC-AGI-3-Agents/
+ARC3-solution/
+arc-agi-3-just-explore/
+
+# Temp batch files
+arc2_tb_*
+arc2_new_train.txt
+
+# Environment files (game source - don't commit)
+environment_files/
+
+# Venvs
+.venv-arc3/
+
+# Claude worktrees
+.claude/worktrees/

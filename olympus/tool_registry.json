@@ -1,0 +1,418 @@
+{
+  "tools": [
+    {
+      "name": "sort",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\code\\sort.c",
+      "query_patterns": [
+        "sort\\b",
+        "sorted\\b",
+        "order\\b.*\\["
+      ],
+      "description": "Compiled sort algorithm",
+      "compiled_at": "2026-03-27 19:00:05",
+      "uses": 0
+    },
+    {
+      "name": "binary_search",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\code\\binary_search.c",
+      "query_patterns": [
+        "binary\\s*search",
+        "find.*in.*sorted"
+      ],
+      "description": "Compiled binary_search algorithm",
+      "compiled_at": "2026-03-27 19:00:05",
+      "uses": 0
+    },
+    {
+      "name": "reverse",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\code\\reverse.c",
+      "query_patterns": [
+        "reverse\\b.*(?:list|array|string)"
+      ],
+      "description": "Compiled reverse algorithm",
+      "compiled_at": "2026-03-27 19:00:05",
+      "uses": 0
+    },
+    {
+      "name": "arc_0d3d703e_color_map",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\0d3d703e.c",
+      "query_patterns": [
+        "arc.*0d3d703e"
+      ],
+      "description": "ARC 0d3d703e: color map: 1->5, 2->6, 3->4, 4->3, 5->1, 6->2, 8->9, 9->8",
+      "compiled_at": "2026-03-27 19:39:16",
+      "uses": 0
+    },
+    {
+      "name": "arc_3c9b0459_rotate_180",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\3c9b0459.c",
+      "query_patterns": [
+        "arc.*3c9b0459"
+      ],
+      "description": "ARC 3c9b0459: geometric transform: rotate_180",
+      "compiled_at": "2026-03-27 19:41:10",
+      "uses": 0
+    },
+    {
+      "name": "arc_6150a2bd_rotate_180",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\6150a2bd.c",
+      "query_patterns": [
+        "arc.*6150a2bd"
+      ],
+      "description": "ARC 6150a2bd: geometric transform: rotate_180",
+      "compiled_at": "2026-03-27 19:41:10",
+      "uses": 0
+    },
+    {
+      "name": "arc_74dd1130_transpose",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\74dd1130.c",
+      "query_patterns": [
+        "arc.*74dd1130"
+      ],
+      "description": "ARC 74dd1130: geometric transform: transpose",
+      "compiled_at": "2026-03-27 19:41:13",
+      "uses": 0
+    },
+    {
+      "name": "arc_9dfd6313_transpose",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\9dfd6313.c",
+      "query_patterns": [
+        "arc.*9dfd6313"
+      ],
+      "description": "ARC 9dfd6313: geometric transform: transpose",
+      "compiled_at": "2026-03-27 19:41:15",
+      "uses": 0
+    },
+    {
+      "name": "arc_a416b8f3_tile_input",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\a416b8f3.c",
+      "query_patterns": [
+        "arc.*a416b8f3"
+      ],
+      "description": "ARC a416b8f3: tile input 1x2",
+      "compiled_at": "2026-03-27 19:41:16",
+      "uses": 0
+    },
+    {
+      "name": "arc_b1948b0a_color_map",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\b1948b0a.c",
+      "query_patterns": [
+        "arc.*b1948b0a"
+      ],
+      "description": "ARC b1948b0a: color map: 6->2, 7->7",
+      "compiled_at": "2026-03-27 19:41:18",
+      "uses": 0
+    },
+    {
+      "name": "arc_c59eb873_scale_2x",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\c59eb873.c",
+      "query_patterns": [
+        "arc.*c59eb873"
+      ],
+      "description": "ARC c59eb873: scale up by 2x",
+      "compiled_at": "2026-03-27 19:41:19",
+      "uses": 0
+    },
+    {
+      "name": "arc_c8f0f002_color_map",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\c8f0f002.c",
+      "query_patterns": [
+        "arc.*c8f0f002"
+      ],
+      "description": "ARC c8f0f002: color map: 1->1, 7->5, 8->8",
+      "compiled_at": "2026-03-27 19:41:20",
+      "uses": 0
+    },
+    {
+      "name": "arc_d511f180_color_map",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\d511f180.c",
+      "query_patterns": [
+        "arc.*d511f180"
+      ],
+      "description": "ARC d511f180: color map: 1->1, 2->2, 3->3, 4->4, 5->8, 6->6, 7->7, 8->5, 9->9",
+      "compiled_at": "2026-03-27 19:41:21",
+      "uses": 0
+    },
+    {
+      "name": "arc_ed36ccf7_rotate_270",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\ed36ccf7.c",
+      "query_patterns": [
+        "arc.*ed36ccf7"
+      ],
+      "description": "ARC ed36ccf7: geometric transform: rotate_270",
+      "compiled_at": "2026-03-27 19:41:22",
+      "uses": 0
+    },
+    {
+      "name": "arc_1cf80156_crop_nonzero",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\1cf80156.c",
+      "query_patterns": [
+        "arc.*1cf80156"
+      ],
+      "description": "ARC 1cf80156: crop to bounding box of non-zero cells",
+      "compiled_at": "2026-03-27 19:51:46",
+      "uses": 0
+    },
+    {
+      "name": "arc_1e0a9b12_gravity_down",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\1e0a9b12.c",
+      "query_patterns": [
+        "arc.*1e0a9b12"
+      ],
+      "description": "ARC 1e0a9b12: gravity: non-zero cells fall to bottom of column",
+      "compiled_at": "2026-03-27 19:51:47",
+      "uses": 0
+    },
+    {
+      "name": "arc_3906de3d_gravity_up",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\3906de3d.c",
+      "query_patterns": [
+        "arc.*3906de3d"
+      ],
+      "description": "ARC 3906de3d: single: gravity_up",
+      "compiled_at": "2026-03-27 19:51:49",
+      "uses": 0
+    },
+    {
+      "name": "arc_67a3c6ac_flip_horizontal",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\67a3c6ac.c",
+      "query_patterns": [
+        "arc.*67a3c6ac"
+      ],
+      "description": "ARC 67a3c6ac: geometric transform: flip_horizontal",
+      "compiled_at": "2026-03-27 19:51:52",
+      "uses": 0
+    },
+    {
+      "name": "arc_68b16354_flip_vertical",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\68b16354.c",
+      "query_patterns": [
+        "arc.*68b16354"
+      ],
+      "description": "ARC 68b16354: geometric transform: flip_vertical",
+      "compiled_at": "2026-03-27 19:51:53",
+      "uses": 0
+    },
+    {
+      "name": "arc_aabf363d_color_map",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\aabf363d.c",
+      "query_patterns": [
+        "arc.*aabf363d"
+      ],
+      "description": "ARC aabf363d: color map: 0->0, 2->4, 3->6, 4->0, 6->0",
+      "compiled_at": "2026-03-27 19:51:59",
+      "uses": 0
+    },
+    {
+      "name": "arc_007bbfb7_self_tile",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\007bbfb7.c",
+      "query_patterns": [
+        "arc.*007bbfb7"
+      ],
+      "description": "ARC 007bbfb7: self-tile: place input copy at each non-zero cell position",
+      "compiled_at": "2026-03-27 19:58:21",
+      "uses": 0
+    },
+    {
+      "name": "arc_0520fde7_split_col_and",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\0520fde7.c",
+      "query_patterns": [
+        "arc.*0520fde7"
+      ],
+      "description": "ARC 0520fde7: split at col 3, and halves, fill with 2",
+      "compiled_at": "2026-03-27 19:58:22",
+      "uses": 0
+    },
+    {
+      "name": "arc_00d62c1b_fill_enclosed",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\00d62c1b.c",
+      "query_patterns": [
+        "arc.*00d62c1b"
+      ],
+      "description": "ARC 00d62c1b: fill enclosed regions with color 4",
+      "compiled_at": "2026-03-27 19:59:51",
+      "uses": 0
+    },
+    {
+      "name": "arc_3428a4f5_split_row_xor",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\3428a4f5.c",
+      "query_patterns": [
+        "arc.*3428a4f5"
+      ],
+      "description": "ARC 3428a4f5: split at row 6, xor halves, fill with 3",
+      "compiled_at": "2026-03-27 20:00:26",
+      "uses": 0
+    },
+    {
+      "name": "arc_99b1bc43_split_row_xor",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\99b1bc43.c",
+      "query_patterns": [
+        "arc.*99b1bc43"
+      ],
+      "description": "ARC 99b1bc43: split at row 4, xor halves, fill with 3",
+      "compiled_at": "2026-03-27 20:00:39",
+      "uses": 0
+    },
+    {
+      "name": "arc_a5313dff_fill_enclosed",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\a5313dff.c",
+      "query_patterns": [
+        "arc.*a5313dff"
+      ],
+      "description": "ARC a5313dff: fill enclosed regions with color 1",
+      "compiled_at": "2026-03-27 20:00:42",
+      "uses": 0
+    },
+    {
+      "name": "arc_3aa6fb7a_neighbor_recolor",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\3aa6fb7a.c",
+      "query_patterns": [
+        "arc.*3aa6fb7a"
+      ],
+      "description": "ARC 3aa6fb7a: bg cells with 2 4-neighbors of color 8 become 1",
+      "compiled_at": "2026-03-27 20:06:42",
+      "uses": 0
+    },
+    {
+      "name": "arc_4258a5f9_neighbor_recolor",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\4258a5f9.c",
+      "query_patterns": [
+        "arc.*4258a5f9"
+      ],
+      "description": "ARC 4258a5f9: bg cells with 1 8-neighbors of color 5 become 1",
+      "compiled_at": "2026-03-27 20:06:44",
+      "uses": 0
+    },
+    {
+      "name": "arc_a699fb00_neighbor_recolor",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\a699fb00.c",
+      "query_patterns": [
+        "arc.*a699fb00"
+      ],
+      "description": "ARC a699fb00: bg cells with 2 4-neighbors of color 1 become 2",
+      "compiled_at": "2026-03-27 20:07:06",
+      "uses": 0
+    },
+    {
+      "name": "arc_dc1df850_neighbor_recolor",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\dc1df850.c",
+      "query_patterns": [
+        "arc.*dc1df850"
+      ],
+      "description": "ARC dc1df850: bg cells with 1 8-neighbors of color 2 become 1",
+      "compiled_at": "2026-03-27 20:07:17",
+      "uses": 0
+    },
+    {
+      "name": "arc_f25ffba3_mirror_complete",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\f25ffba3.c",
+      "query_patterns": [
+        "arc.*f25ffba3"
+      ],
+      "description": "ARC f25ffba3: mirror-complete top-bottom",
+      "compiled_at": "2026-03-27 20:07:19",
+      "uses": 0
+    },
+    {
+      "name": "arc_22168020_connect_same_color",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\22168020.c",
+      "query_patterns": [
+        "arc.*22168020"
+      ],
+      "description": "ARC 22168020: connect same-color cells with H/V lines (color=same)",
+      "compiled_at": "2026-03-27 22:36:50",
+      "uses": 0
+    },
+    {
+      "name": "arc_22eb0ac0_connect_same_color",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\22eb0ac0.c",
+      "query_patterns": [
+        "arc.*22eb0ac0"
+      ],
+      "description": "ARC 22eb0ac0: connect same-color cells with H/V lines (color=same)",
+      "compiled_at": "2026-03-27 22:36:51",
+      "uses": 0
+    },
+    {
+      "name": "arc_253bf280_connect_same_color",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\253bf280.c",
+      "query_patterns": [
+        "arc.*253bf280"
+      ],
+      "description": "ARC 253bf280: connect same-color cells with H/V lines (color=3)",
+      "compiled_at": "2026-03-27 22:36:54",
+      "uses": 0
+    },
+    {
+      "name": "arc_5bd6f4ac_extract_subgrid",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\5bd6f4ac.c",
+      "query_patterns": [
+        "arc.*5bd6f4ac"
+      ],
+      "description": "ARC 5bd6f4ac: extract subgrid at (0,6) size 3x3",
+      "compiled_at": "2026-03-27 22:37:09",
+      "uses": 0
+    },
+    {
+      "name": "arc_d10ecb37_extract_subgrid",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\d10ecb37.c",
+      "query_patterns": [
+        "arc.*d10ecb37"
+      ],
+      "description": "ARC d10ecb37: extract subgrid at (0,0) size 2x2",
+      "compiled_at": "2026-03-27 22:38:48",
+      "uses": 0
+    },
+    {
+      "name": "arc_dbc1a6ce_connect_same_color",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\dbc1a6ce.c",
+      "query_patterns": [
+        "arc.*dbc1a6ce"
+      ],
+      "description": "ARC dbc1a6ce: connect same-color cells with H/V lines (color=8)",
+      "compiled_at": "2026-03-27 22:38:52",
+      "uses": 0
+    },
+    {
+      "name": "arc_ded97339_connect_same_color",
+      "c_source": "C:\\Users\\atchi\\h4-polytopic-attention\\olympus\\wasm_tools\\arc\\solved\\ded97339.c",
+      "query_patterns": [
+        "arc.*ded97339"
+      ],
+      "description": "ARC ded97339: connect same-color cells with H/V lines (color=same)",
+      "compiled_at": "2026-03-27 22:38:55",
+      "uses": 0
+    },
+    {
+      "name": "arc_0ca9ddb6_color_neighbor_pattern",
+      "c_source": "olympus\\wasm_tools\\arc\\solved\\0ca9ddb6.c",
+      "query_patterns": [
+        "arc.*0ca9ddb6"
+      ],
+      "description": "ARC 0ca9ddb6: color 2->diag 4, color 1->ortho 7",
+      "compiled_at": "2026-03-27 23:52:21",
+      "uses": 0
+    },
+    {
+      "name": "arc_08ed6ac7_rank_bars",
+      "c_source": "olympus\\wasm_tools\\arc\\solved\\08ed6ac7.c",
+      "query_patterns": [
+        "arc.*08ed6ac7"
+      ],
+      "description": "ARC 08ed6ac7: rank vertical bars by height -> colors 1-N",
+      "compiled_at": "2026-03-27 23:52:21",
+      "uses": 0
+    },
+    {
+      "name": "arc_178fcbfb_line_by_color",
+      "c_source": "olympus\\wasm_tools\\arc\\solved\\178fcbfb.c",
+      "query_patterns": [
+        "arc.*178fcbfb"
+      ],
+      "description": "ARC 178fcbfb: 2->vline first, 1,3->hline overwrite",
+      "compiled_at": "2026-03-27 23:53:05",
+      "uses": 0
+    }
+  ],
+  "failures_logged": []
+}
