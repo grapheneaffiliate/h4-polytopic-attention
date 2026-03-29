@@ -497,6 +497,14 @@ class BreakthroughAgent:
         self.guided = 0
         self.random = 0
 
+    def _replay_root_states(self) -> set:
+        """States that are roots of solved levels (where replay should start)."""
+        roots = set()
+        for level, path in self.winning_paths.items():
+            if path:
+                roots.add(path[0][0])  # first (state, action) pair's state
+        return roots
+
     def on_new_state(self, state: str, available_actions: set):
         if state not in self.explorer.nodes:
             self.explorer.add_node(state, available_actions)
@@ -507,13 +515,20 @@ class BreakthroughAgent:
 
         self.on_new_state(state, available_actions)
 
-        # Replay mode
+        # Replay mode: only replay if the environment actually reset to level 0
+        # (detected by checking if current state matches a solved level's start)
         if self.replaying and self.replay_queue:
-            action = self.replay_queue.pop(0)
-            if action in available_actions:
-                return action
-            self.replaying = False
-            self.replay_queue = []
+            # If we're already at the current unsolved level (env doesn't need replay),
+            # skip replay entirely
+            if self.winning_paths and state not in self._replay_root_states():
+                self.replaying = False
+                self.replay_queue = []
+            else:
+                action = self.replay_queue.pop(0)
+                if action in available_actions:
+                    return action
+                self.replaying = False
+                self.replay_queue = []
 
         # DUAL MODE: if stalled, delegate to independent MCTS sub-agent
         if self._mcts_sub is not None:
