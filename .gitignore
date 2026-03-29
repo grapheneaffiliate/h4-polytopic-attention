@@ -36,6 +36,7 @@ environment_files/
 
 # Venvs
 .venv-arc3/
+.venv-arc3-linux/
 
 # Claude worktrees
 .claude/worktrees/
