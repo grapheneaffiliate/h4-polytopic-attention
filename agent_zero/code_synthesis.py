@@ -631,11 +631,19 @@ ALL_PATTERNS = [
 ]
 
 
-def synthesize_solver(task: dict) -> Optional[callable]:
+def synthesize_solver(task: dict, task_id: str = None) -> Optional[callable]:
     """
     Try all pattern functions against training examples.
+    Also checks custom solvers (written by Claude for specific tasks).
     Returns the first solver that passes all training examples, or None.
     """
+    # Check custom solvers first (task-specific, highest accuracy)
+    if task_id:
+        custom = _get_custom_solver(task_id)
+        if custom is not None:
+            if test_solver(task, custom):
+                return custom
+
     for pattern_fn in ALL_PATTERNS:
         try:
             solver = pattern_fn(task)
@@ -646,12 +654,29 @@ def synthesize_solver(task: dict) -> Optional[callable]:
     return None
 
 
+def _get_custom_solver(task_id: str):
+    """Load custom solver for a specific task ID."""
+    try:
+        from .arc_custom_solvers import CUSTOM_SOLVERS
+        if task_id in CUSTOM_SOLVERS:
+            return CUSTOM_SOLVERS[task_id]
+    except (ImportError, AttributeError):
+        pass
+    try:
+        from .arc_custom_solvers_b import CUSTOM_SOLVERS_B
+        if task_id in CUSTOM_SOLVERS_B:
+            return CUSTOM_SOLVERS_B[task_id]
+    except (ImportError, AttributeError):
+        pass
+    return None
+
+
 def solve_arc_task(task_id: str, task: dict) -> Optional[list]:
     """
     Attempt to solve an ARC task via code synthesis.
     Returns the predicted test output, or None if no pattern matches.
     """
-    solver = synthesize_solver(task)
+    solver = synthesize_solver(task, task_id=task_id)
     if solver is None:
         return None
 
