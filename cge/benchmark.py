@@ -78,11 +78,12 @@ def run_benchmark(n_seeds=10, max_actions=10000):
                for a in agent_types}
 
     for seed in range(n_seeds):
-        for agent_name, agent_fn in agent_types.items():
-            envs = make_envs(seed)
-            random.seed(seed * 1000 + hash(agent_name) % 1000)
-
-            for env in envs:
+        for env_idx in range(len(env_names)):
+            for agent_name, agent_fn in agent_types.items():
+                envs = make_envs(seed)
+                env = envs[env_idx]
+                # Same seed per environment instance — only agent differs
+                random.seed(seed * 10000 + env_idx * 100 + 1)
                 agent = agent_fn()
                 r = run_agent(agent, env, max_actions)
                 results[agent_name][env.name]["levels"] += r["levels_solved"]
@@ -155,4 +156,4 @@ def run_benchmark(n_seeds=10, max_actions=10000):
 
 
 if __name__ == "__main__":
-    run_benchmark(n_seeds=10, max_actions=10000)
+    run_benchmark(n_seeds=20, max_actions=10000)

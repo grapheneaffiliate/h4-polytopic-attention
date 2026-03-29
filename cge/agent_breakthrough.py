@@ -291,8 +291,14 @@ class SmartExplorer:
                 else:
                     rewards = self._sa_rewards.get(sa_key, [0])
                     mean_reward = sum(rewards) / max(len(rewards), 1)
-                    exploration = self.C * math.sqrt(math.log(N + 1) / n_i)
+                    # Adaptive C: decay as confidence grows
+                    # After 10+ visits, we're confident — reduce exploration
+                    effective_C = self.C / (1 + n_i / 10.0)
+                    exploration = effective_C * math.sqrt(math.log(N + 1) / n_i)
                     score = mean_reward + exploration
+                    # Hard floor: actions with 0 reward after 10+ visits get penalized
+                    if n_i >= 10 and mean_reward == 0:
+                        score = -1.0
             else:
                 # Fall back to global
                 n_i = self._action_type_visits.get(action, 0)
@@ -302,8 +308,11 @@ class SmartExplorer:
                 else:
                     rewards = self._action_type_rewards.get(action, [0])
                     mean_reward = sum(rewards) / max(len(rewards), 1)
-                    exploration = self.C * math.sqrt(math.log(N + 1) / n_i)
+                    effective_C = self.C / (1 + n_i / 10.0)
+                    exploration = effective_C * math.sqrt(math.log(N + 1) / n_i)
                     score = mean_reward + exploration
+                    if n_i >= 10 and mean_reward == 0:
+                        score = -1.0
 
             if score > best_score:
                 best_score = score
