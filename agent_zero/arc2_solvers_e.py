@@ -40,7 +40,7 @@ def solve_7b0280bc(grid):
         for cell in cells:
             block_at[cell] = idx
 
-    path_cells = {(r, c) for r in range(R) for c in range(C) if grid[r][c] == path_color}
+    path_cells = {(r, c) for r in range(R) for c in range(C) if grid[r][c] != bg and (r, c) not in all_block_cells}
     dirs8 = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
     adj = {i: set() for i in range(len(blocks))}
