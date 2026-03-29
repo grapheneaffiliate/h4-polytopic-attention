@@ -1,7 +1,54 @@
 # Session Handoff — ARC-AGI Self-Compiling Intelligence
 
-**Date:** 2026-03-28 (sessions 1+2+3, session 3 COMPLETE)
-**Status:** AGI-1 100%, AGI-2 38.3% eval, AGI-3 12.6% (unified)
+**Date:** 2026-03-29 (sessions 1+2+3+4, session 4 IN PROGRESS)
+**Status:** AGI-1 100%, AGI-2 38.3% eval, AGI-3 12.6% → v4 ready
+
+---
+
+## Session 4: Explorer v4 Optimizations (THIS SESSION)
+
+### What Was Built
+**`olympus/arc3/explorer_v4.py`** — Speed-optimized unified explorer with adaptive grid-click.
+
+| Improvement | Detail |
+|-------------|--------|
+| **Faster hashing** | Avoid frame copy when no mask, use `ravel()` not `flatten()` |
+| **Faster segmentation** | `scipy.ndimage.label` (C-level) — ~5x faster than Python BFS |
+| **Lower grid-click threshold** | 30 states / 3K actions (was 50 / 5K) — catches stuck games earlier |
+| **Adaptive grid step** | step=4 → step=2 escalation at 15K actions if still stuck |
+| **O(1) reverse action lookup** | Pre-built dict replaces O(n) scan per step |
+| **Higher budget** | 200K default (was 150K) — more budget = more levels |
+| **Null mask optimization** | `detect_status_bar_mask` returns None when no bars found |
+
+### Files Added
+```
+olympus/arc3/explorer_v4.py     # v4 unified explorer
+benchmark_v4.py                 # Run all 25 games at 200K
+run_stuck_games_v4.py           # Focus on 14 zero-level games
+```
+
+### How to Run
+```bash
+# Full benchmark (200K actions per game)
+PYTHONIOENCODING=utf-8 ARC_API_KEY="58b421be-5980-4ee8-8e57-0f18dc9369f3" python benchmark_v4.py
+
+# Stuck games only (faster iteration)
+PYTHONIOENCODING=utf-8 ARC_API_KEY="58b421be-5980-4ee8-8e57-0f18dc9369f3" python run_stuck_games_v4.py
+
+# Single game
+ARC_API_KEY="58b421be-5980-4ee8-8e57-0f18dc9369f3" python olympus/arc3/explorer_v4.py GAME_ID 200000
+```
+
+### Expected Impact
+- **Speed**: ~3-5x faster per action (target <50ms from ~150ms)
+- **Grid-click**: Earlier detection means cd82, lf52, sk48 get more budget in grid mode
+- **Budget**: 200K = 33% more exploration than 150K
+- **Target**: 25+ levels (13.7%+), beating 3rd place's 12.58%
+
+### What Still Needs Running
+1. **Full v4 benchmark** at 200K on all 25 games — compare to v2@100K (23/182)
+2. **Stuck games focus run** — especially sk48 (was 316 states at 20K grid-click)
+3. **300K budget test** on top 5 games — see if more budget helps
 
 ---
 
@@ -228,6 +275,8 @@ data/arc2_solutions_train_{aa-af}.json      # New training: 112 solutions
 olympus/arc3/explorer.py        # v1: Priority-group BFS (ORIGINAL)
 olympus/arc3/explorer_v2.py     # v2: Lazy rebuilds, replay, depth-bias
 olympus/arc3/explorer_v3_gridclick.py  # v3: Grid-cell click for stuck games
+olympus/arc3/explorer_unified.py # Unified v1 (v2+v3 merged, 150K)
+olympus/arc3/explorer_v4.py     # v4: Speed-optimized, adaptive grid-click, 200K
 olympus/arc3/__init__.py
 ```
 
