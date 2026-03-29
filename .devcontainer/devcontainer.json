@@ -1,0 +1,9 @@
+{
+  "name": "ARC-AGI Runner",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "postCreateCommand": "pip install arc-agi arcengine scipy numpy && echo 'Ready! Run: bash setup_and_run.sh'",
+  "containerEnv": {
+    "ARC_API_KEY": "58b421be-5980-4ee8-8e57-0f18dc9369f3",
+    "PYTHONIOENCODING": "utf-8"
+  }
+}
