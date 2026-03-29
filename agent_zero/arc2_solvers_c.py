@@ -15,8 +15,33 @@ def solve_446ef5d2(grid):
     positioned so the marked fragment stays at its original location.
     """
     R, C = len(grid), len(grid[0])
-    bg = 8
+    from collections import Counter
 
+    counts = Counter()
+    for row in grid:
+        counts.update(row)
+    bg = counts.most_common(1)[0][0]
+
+    # Determine marker color: try 4 first (training), then other rare colors
+    marker_candidates = [4] if bg != 4 else []
+    for color, _ in counts.most_common():
+        if color != bg and color not in marker_candidates:
+            marker_candidates.append(color)
+    # Try rare colors first as markers
+    marker_candidates_sorted = sorted(
+        [c for c in marker_candidates if c != bg], key=lambda c: counts[c]
+    )
+
+    for marker_color in marker_candidates_sorted:
+        result = _try_solve_446(grid, R, C, bg, marker_color)
+        if result is not None:
+            return result
+
+    return grid
+
+
+def _try_solve_446(grid, R, C, bg, marker_color):
+    """Try to solve with a specific marker color."""
     visited = [[False] * C for _ in range(R)]
 
     def flood(r, c):
@@ -61,17 +86,17 @@ def solve_446ef5d2(grid):
                 row.append(grid[r][c] if (r, c) in cell_set else bg)
             frag_grid.append(row)
 
-        fours = [(r - rmin, c - cmin) for r, c in frag if grid[r][c] == 4]
+        markers = [(r - rmin, c - cmin) for r, c in frag if grid[r][c] == marker_color]
 
-        if fours:
+        if markers:
             marked_idx = len(fragments)
             fr, fc = len(frag_grid), len(frag_grid[0])
-            avg_r = sum(r for r, c in fours) / len(fours)
-            avg_c = sum(c for r, c in fours) / len(fours)
+            avg_r = sum(r for r, c in markers) / len(markers)
+            avg_c = sum(c for r, c in markers) / len(markers)
             marked_corner = ("bottom" if avg_r > fr / 2 else "top") + "_" + (
                 "right" if avg_c > fc / 2 else "left"
             )
-            for r_rel, c_rel in fours:
+            for r_rel, c_rel in markers:
                 frag_grid[r_rel][c_rel] = bg
 
         non_bg = [
@@ -89,12 +114,12 @@ def solve_446ef5d2(grid):
         tc_max = max(c for r, c in non_bg)
 
         trimmed = [row[tc_min : tc_max + 1] for row in frag_grid[tr_min : tr_max + 1]]
-        if fours:
+        if markers:
             marked_pos = (rmin + tr_min, cmin + tc_min)
         fragments.append(trimmed)
 
-    if marked_idx < 0:
-        return grid
+    if marked_idx < 0 or len(fragments) < 2:
+        return None
 
     total_cells = sum(len(f) * len(f[0]) for f in fragments)
     max_fh = max(len(f) for f in fragments)
@@ -140,7 +165,7 @@ def solve_446ef5d2(grid):
                             out[out_r][out_c] = result[r][c]
                 return out
 
-    return grid
+    return None
 
 
 def _check_edges_446(canvas, H, W, pr, pc, frag, bg, check_tb):
