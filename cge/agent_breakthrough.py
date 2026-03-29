@@ -487,6 +487,12 @@ class BreakthroughAgent:
         # Action efficacy (for tie-breaking)
         self._action_efficacy: dict = defaultdict(lambda: [0, 0])
 
+        # Navigation failure tracking: if explorer says "take A to reach B"
+        # but we reach C, that's a failure. States with failures use MCTS.
+        self._nav_failures: dict = defaultdict(int)  # state -> failure count
+        self._nav_expected: tuple = None  # (expected_target_state,) or None
+        self._NAV_FAIL_THRESHOLD = 2  # switch to MCTS after this many failures
+
         # MCTS-style episode learning:
         # Track cumulative descendants per (state, action) across all episodes.
         # Forced rotation ensures all branches tried; exploit when clear winner.
@@ -500,7 +506,7 @@ class BreakthroughAgent:
         self.random = 0
 
     def on_new_state(self, state: str, available_actions: set):
-        self._all_states_ever.add(state)
+        # Don't add to _all_states_ever here — let observe_result detect new states
         if state not in self.explorer.nodes:
             self.explorer.add_node(state, available_actions)
 
@@ -547,50 +553,32 @@ class BreakthroughAgent:
             self.replaying = False
             self.replay_queue = []
 
-        # Episode-aware branching: ONLY at closed nodes where the explorer
-        # can't navigate to any frontier (tree-like structure).
-        # In grids/graphs where BFS works, let the explorer handle it.
+        # Normal exploration / navigation
         node = self.explorer.nodes.get(state)
-        if node and not node.untested:
-            # Use MCTS episode branching at closed nodes.
-            # BUT only override the explorer if we have episode data AND
-            # a clear winner exists (otherwise let the explorer navigate).
-            live_actions = set()
-            for a, (changed, target) in node.tested.items():
-                if changed and target and target != state:
-                    live_actions.add(a)
-            if live_actions and any((state, a) in self._sa_descendants for a in live_actions):
-                # Check if there's a clear winner
-                descs = {a: self._sa_descendants.get((state, a), 0) for a in live_actions}
-                best = max(descs.values())
-                if best > 3:  # meaningful signal
-                    action = self._choose_episode_branch(state, live_actions)
-                    if action is not None:
-                        self._episode_path.append((state, action))
-                        self._sa_episode_tries[(state, action)] = \
-                            self._sa_episode_tries.get((state, action), 0) + 1
-                        return action
+        is_exploration = node and bool(node.untested) if node else False
 
-        # Check if this is an EXPLORATION action (untested at current node)
-        is_exploration = (state in self.explorer.nodes and
-                         self.explorer.nodes[state].untested)
-
-        # Periodic compression analysis
         if self.level_actions % self.ANALYZE_INTERVAL == 0 and self.level_actions > 0:
             self.compression.analyze(self.explorer)
 
-        # Build action ordering from compression + transfer (for UCB1 tie-breaker)
         action_order = self._build_action_order(state, available_actions)
-
-        # Adaptive: UCB1 when branch values differ, compression when they don't
         action = self.explorer.choose_action(state, action_order=action_order)
 
         if action is None:
             action = random.choice(list(available_actions)) if available_actions else None
 
-        # Only track branch value for EXPLORATION actions (not navigation)
         if action is not None and is_exploration:
             self.explorer.begin_action(state, action)
+
+        # Always track episode path for descendant credit
+        if action is not None:
+            self._episode_path.append((state, action))
+
+        # Record navigation expectation (for failure detection)
+        if action is not None and not is_exploration and state in self.explorer.next_hop:
+            _, expected_target = self.explorer.next_hop[state]
+            self._nav_expected = (state, expected_target)
+        else:
+            self._nav_expected = None
 
         return action
 
@@ -628,7 +616,14 @@ class BreakthroughAgent:
         self.explorer.record_transition(prev_state, action, changed,
                                        target=target, target_actions=target_actions)
 
-        # Let branch reward accumulate (don't finalize until next exploration action)
+        # Navigation failure detection: did we arrive where expected?
+        if self._nav_expected is not None:
+            nav_state, expected_target = self._nav_expected
+            if new_state != expected_target:
+                self._nav_failures[nav_state] = self._nav_failures.get(nav_state, 0) + 1
+            self._nav_expected = None
+
+        # Let branch reward accumulate
         self.explorer.end_action_step()
 
         if changed:
@@ -679,9 +674,13 @@ class BreakthroughAgent:
         self._sa_episode_tries.clear()
         self._all_states_ever.clear()
         self._episode_path = []
+        self._nav_failures.clear()
+        self._nav_expected = None
 
     def on_episode_reset(self):
+        # MUST clear episode path — it's per-episode, not cumulative
         self._episode_path = []
+        self._nav_expected = None
 
         # Finalize any pending exploration reward
         self.explorer.finalize()
