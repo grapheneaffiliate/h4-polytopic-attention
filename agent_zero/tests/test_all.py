@@ -135,6 +135,56 @@ def test_llm_reasoner_error_handling():
                    "level":0,"actions_since_progress":0,"top_actions":[],"total_actions":0})
     assert s == {}
 
+# ── ARC Bridge tests ──────────────────────────────────────
+
+def test_arc_bridge_loads():
+    import os
+    if not os.path.exists("data/arc1"):
+        return  # skip if no data
+    from agent_zero.arc_bridge import get_arc_environments
+    envs = get_arc_environments(n_tasks=3, data_dir="data")
+    assert len(envs) > 0
+
+def test_arc_env_step():
+    import os
+    if not os.path.exists("data/arc1"):
+        return
+    from agent_zero.arc_bridge import get_arc_environments
+    envs = get_arc_environments(n_tasks=1, data_dir="data")
+    if not envs: return
+    env = envs[0]
+    state, actions = env.reset()
+    assert len(actions) > 0
+    state2, actions2, reward, lu, done = env.step(list(actions)[0])
+    assert isinstance(state2, str)
+
+def test_arc_grid_accuracy():
+    from agent_zero.arc_bridge import grid_accuracy
+    assert grid_accuracy([[1,2],[3,4]], [[1,2],[3,4]]) == 1.0
+    assert grid_accuracy([[0,0],[0,0]], [[1,1],[1,1]]) == 0.0
+    assert grid_accuracy([[1,0],[0,1]], [[1,1],[1,1]]) == 0.5
+
+def test_heuristic_arc_reasoner():
+    from agent_zero.llm_reasoner import HeuristicARCReasoner
+    task = {"train": [{"input": [[0,1],[1,0]], "output": [[1,0],[0,1]]}],
+            "test": [{"input": [[0,1],[1,0]]}]}
+    r = HeuristicARCReasoner(task)
+    ctx = {"state": "test", "available_actions": list(range(40)),
+           "states_explored": 5, "level": 0, "actions_since_progress": 50,
+           "top_actions": [], "total_actions": 50}
+    s = r.suggest(ctx)
+    assert isinstance(s, dict)
+
+def test_dry_run_reasoner():
+    from agent_zero.llm_reasoner import DryRunReasoner
+    r = DryRunReasoner(verbose=False)
+    s = r.suggest({"state": "x", "available_actions": [0,1],
+                   "states_explored": 0, "level": 0,
+                   "actions_since_progress": 0, "top_actions": [],
+                   "total_actions": 0})
+    assert s == {}
+    assert r.call_count == 1
+
 
 if __name__ == "__main__":
     for name, func in sorted(globals().items()):
