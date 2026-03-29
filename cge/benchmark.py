@@ -6,8 +6,8 @@ import random
 from .environments import get_all_environments
 from .environments_hard import get_hard_environments
 from .agent import CGEAgent, BFSAgent
-from .agent_v3 import CGEAgentV3
 from .agent_best import CGEBest
+from .agent_breakthrough import BreakthroughAgent
 
 
 def run_agent(agent, env, max_actions=10000):
@@ -58,8 +58,8 @@ def run_benchmark(n_seeds=10, max_actions=10000):
 
     agent_types = {
         "BFS": lambda: BFSAgent(),
-        "CGEv1": lambda: CGEAgent(analyze_interval=100, learn_threshold=50),
         "Best": lambda: CGEBest(analyze_interval=100, learn_threshold=50),
+        "UCB": lambda: BreakthroughAgent(analyze_interval=100, learn_threshold=50),
     }
 
     # Combine original + hard environments
@@ -143,12 +143,12 @@ def run_benchmark(n_seeds=10, max_actions=10000):
 
     print()
 
-    # Print detailed stats for Best run
-    print("\nCGE Best detailed analysis (last seed):")
+    # Print detailed stats for UCB run
+    print("\nBreakthrough (UCB) detailed analysis (last seed):")
     envs = make_envs(n_seeds - 1)
-    random.seed((n_seeds - 1) * 1000 + hash("Best") % 1000)
+    random.seed((n_seeds - 1) * 1000 + hash("UCB") % 1000)
     for env in envs:
-        agent = CGEBest(analyze_interval=100, learn_threshold=50)
+        agent = BreakthroughAgent(analyze_interval=100, learn_threshold=50)
         r = run_agent(agent, env, max_actions)
         print(f"\n  {env.name}: {r['levels_solved']}/{r['total_levels']} levels")
         print(f"  {agent.get_summary()}")
