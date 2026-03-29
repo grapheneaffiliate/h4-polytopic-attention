@@ -485,15 +485,53 @@ class BreakthroughAgent:
         self._global_actions = 0
 
         # Action efficacy (for tie-breaking)
-        self._action_efficacy: dict = defaultdict(lambda: [0, 0])  # [attempts, successes]
+        self._action_efficacy: dict = defaultdict(lambda: [0, 0])
+
+        # MCTS-style episode learning:
+        # Track cumulative descendants per (state, action) across all episodes.
+        # Forced rotation ensures all branches tried; exploit when clear winner.
+        self._sa_descendants: dict = defaultdict(int)  # (state, action) -> total new states found
+        self._sa_episode_tries: dict = defaultdict(int)  # (state, action) -> episode count
+        self._all_states_ever: set = set()  # global state memory (within a level)
+        self._episode_path: list = []  # [(state, action)] this episode
 
         # Stats
         self.guided = 0
         self.random = 0
 
     def on_new_state(self, state: str, available_actions: set):
+        self._all_states_ever.add(state)
         if state not in self.explorer.nodes:
             self.explorer.add_node(state, available_actions)
+
+    def _choose_episode_branch(self, state: str, available_actions: set) -> object:
+        """
+        Forced rotation + exploit. At any state with previously-tested actions:
+        1. If any action untried in episodes → try it (rotation)
+        2. If all tried → exploit the one with most cumulative descendants
+           (but only if it's clearly better: >3x median)
+        3. Otherwise → try least-tried action
+        """
+        al = sorted(available_actions)
+        if not al:
+            return None
+
+        # Find min tries
+        min_tries = min(self._sa_episode_tries.get((state, a), 0) for a in al)
+
+        # Candidates: least-tried actions (forced rotation)
+        candidates = [a for a in al
+                     if self._sa_episode_tries.get((state, a), 0) <= min_tries]
+
+        # If all have been tried at least once, check for clear winner
+        if min_tries > 0:
+            descs = {a: self._sa_descendants.get((state, a), 0) for a in al}
+            best_desc = max(descs.values())
+            if best_desc > 3:  # clear signal exists
+                # Focus on actions with high descendants
+                candidates = [a for a in al if descs[a] >= best_desc * 0.5]
+
+        return random.choice(candidates) if candidates else random.choice(al)
 
     def choose_action(self, state: str, available_actions: set):
         self.total_actions += 1
@@ -508,6 +546,30 @@ class BreakthroughAgent:
                 return action
             self.replaying = False
             self.replay_queue = []
+
+        # Episode-aware branching: ONLY at closed nodes where the explorer
+        # can't navigate to any frontier (tree-like structure).
+        # In grids/graphs where BFS works, let the explorer handle it.
+        node = self.explorer.nodes.get(state)
+        if node and not node.untested:
+            # Use MCTS episode branching at closed nodes.
+            # BUT only override the explorer if we have episode data AND
+            # a clear winner exists (otherwise let the explorer navigate).
+            live_actions = set()
+            for a, (changed, target) in node.tested.items():
+                if changed and target and target != state:
+                    live_actions.add(a)
+            if live_actions and any((state, a) in self._sa_descendants for a in live_actions):
+                # Check if there's a clear winner
+                descs = {a: self._sa_descendants.get((state, a), 0) for a in live_actions}
+                best = max(descs.values())
+                if best > 3:  # meaningful signal
+                    action = self._choose_episode_branch(state, live_actions)
+                    if action is not None:
+                        self._episode_path.append((state, action))
+                        self._sa_episode_tries[(state, action)] = \
+                            self._sa_episode_tries.get((state, action), 0) + 1
+                        return action
 
         # Check if this is an EXPLORATION action (untested at current node)
         is_exploration = (state in self.explorer.nodes and
@@ -571,6 +633,11 @@ class BreakthroughAgent:
 
         if changed:
             self.effective_history.append((prev_state, action))
+            # MCTS: credit ancestors when NEW state discovered
+            if new_state not in self._all_states_ever:
+                self._all_states_ever.add(new_state)
+                for s, a in self._episode_path:
+                    self._sa_descendants[(s, a)] += 1
 
         # Track efficacy
         self._action_efficacy[action][0] += 1
@@ -608,8 +675,14 @@ class BreakthroughAgent:
         self.effective_history = []
         self._branch_window.clear()
         self.level_actions = 0
+        self._sa_descendants.clear()
+        self._sa_episode_tries.clear()
+        self._all_states_ever.clear()
+        self._episode_path = []
 
     def on_episode_reset(self):
+        self._episode_path = []
+
         # Finalize any pending exploration reward
         self.explorer.finalize()
         self.replay_queue = []
