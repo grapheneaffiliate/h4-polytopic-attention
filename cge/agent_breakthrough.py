@@ -487,11 +487,13 @@ class BreakthroughAgent:
         # Action efficacy (for tie-breaking)
         self._action_efficacy: dict = defaultdict(lambda: [0, 0])
 
-        # Stall detection → dual-mode switch
+        # Stall/tree detection → dual-mode switch
         self._stall_count = 0
         self._prev_explorer_states = 0
         self._STALL_THRESHOLD = 10
-        self._mcts_sub: '_MCTSSub' = None  # independent MCTS sub-agent
+        self._mcts_sub: '_MCTSSub' = None
+        self._episode_visits: list = []  # states visited this episode (for tree detection)
+        self._episodes_completed = 0
 
         # Stats
         self.guided = 0
@@ -533,6 +535,9 @@ class BreakthroughAgent:
         # DUAL MODE: if stalled, delegate to independent MCTS sub-agent
         if self._mcts_sub is not None:
             return self._mcts_sub.choose(state, available_actions)
+
+        # Track state transitions for tree detection
+        self._episode_visits.append(state)  # all states visited
 
         # NORMAL MODE: explorer with compression
         node = self.explorer.nodes.get(state)
@@ -635,7 +640,8 @@ class BreakthroughAgent:
         self.level_actions = 0
         self._stall_count = 0
         self._prev_explorer_states = 0
-        # Reset MCTS level tracking for new levels, keep sub alive for replayed
+        self._episodes_completed = 0
+        self._episode_visits = []
         if self._mcts_sub is not None and level + 1 > self.levels_solved:
             self._mcts_sub.reset_for_new_level()
 
@@ -651,18 +657,46 @@ class BreakthroughAgent:
             self.effective_history = []
             return
 
-        # Stall detection: if explorer state count hasn't grown, increment stall
+        self._episodes_completed += 1
+
+        # Tree detection: after first episode, check if the discovered graph
+        # has zero back-edges (no state ever transitions to an ancestor).
+        # This catches trees even when root has only 1 tested action.
+        if self._mcts_sub is None and self._episodes_completed <= 3:
+            is_tree = True
+            if self.explorer.num_states >= 3:
+                # Check: does ANY edge go to a state at equal or lower depth?
+                for src, edges in self.explorer.edges.items():
+                    src_depth = self.explorer.nodes[src].depth if src in self.explorer.nodes else 0
+                    for action, dst in edges:
+                        dst_depth = self.explorer.nodes[dst].depth if dst in self.explorer.nodes else 0
+                        if dst_depth <= src_depth:
+                            is_tree = False
+                            break
+                    if not is_tree:
+                        break
+            else:
+                is_tree = False  # not enough data
+
+            # Also require root branching: root has 2+ distinct children
+            if is_tree:
+                root = self._episode_visits[0] if self._episode_visits else None
+                if root and root in self.explorer.edges:
+                    root_children = len(set(dst for _, dst in self.explorer.edges[root]))
+                    if root_children >= 2:
+                        self._mcts_sub = _MCTSSub()
+
+        # Stall detection (fallback for non-obvious trees)
         cur = self.explorer.num_states
         if cur <= self._prev_explorer_states:
             self._stall_count += 1
         else:
             self._stall_count = 0
         self._prev_explorer_states = cur
-
-        # Switch to MCTS sub-agent when stalled
         if self._mcts_sub is None and self._stall_count >= self._STALL_THRESHOLD:
             self._mcts_sub = _MCTSSub()
 
+        self._episode_visits = []
         self.explorer.finalize()
         self.replay_queue = []
         for level in sorted(self.winning_paths.keys()):

@@ -4,9 +4,9 @@
 
 Final benchmark (20 seeds, 10 environments, 10K action budget):
 ```
-UCB Breakthrough:  492 levels, 27,870 act/run  (+26% vs BFS)
-CGE Best:          456 levels, 31,365 act/run  (+17% vs BFS)
-BFS baseline:      390 levels, 36,581 act/run
+UCB Breakthrough:  501 levels, 29,653 act/run  (+29% vs BFS)
+CGE Best:          454 levels, 31,970 act/run  (+17% vs BFS)
+BFS baseline:      389 levels, 36,685 act/run
 ```
 
 ## Quick Start
@@ -46,8 +46,10 @@ Layer 2: Compression Fallback (when UCB has no signal)
   Key for environments like CausalChain where all actions have similar
   per-action reward but state features predict the correct action.
 
-Layer 3: MCTS Sub-Agent (when explorer is stuck)
-  Stall detection: 10+ consecutive episodes with 0 new states.
+Layer 3: MCTS Sub-Agent (for trees + when explorer is stuck)
+  Tree detection: after 1-3 episodes, checks for acyclic graph with
+  branching root (2+ distinct children). Triggers MCTS immediately.
+  Stall detection (fallback): 10+ episodes with 0 new states.
   Spawns _MCTSSub — completely independent, no shared state with explorer.
   Forced rotation: tries each action at each state at least once.
   Descendant credit: when a new state is found, ALL ancestors in the
@@ -145,13 +147,13 @@ MazeNavigation              40/80      40/80      40/80      1.6x faster
 BottleneckPuzzle            29/80      25/80      25/80      BFS wins here
 HiddenPatternPuzzle         60/80      60/80      60/80      1.3x faster
 LargeStateSpace             20/80      20/80      20/80      2.1x faster
-DeepTreeSearch              20/80      20/80      47/80      2.35x more levels
+DeepTreeSearch              20/80      20/80      56/80      2.8x more levels
 NeedleInHaystack            21/80      31/80      40/80      1.9x more levels
 StuckGame                   40/80      40/80      40/80      —
 CausalChain                  0/80      60/80      60/80      1.4x faster
 RuleLearning               100/80     100/80     100/80      1.1x faster
 ─────────────────────────────────────────────────────────────────────────
-TOTAL                       390        456        492        +26% vs BFS
+TOTAL                       389        454        501        +29% vs BFS
 ```
 
 ### Evolution (how we got here)
@@ -165,6 +167,7 @@ CGE Best      → 456 levels  (v1 compression + v3 transfer + adaptive pruning)
 UCB           → 445 levels  (per-state UCB1 + adaptive C)
 UCB + MCTS    → 463 levels  (dual-mode with stall detection)
 UCB + replay  → 492 levels  (smart replay skip for tree environments)
+UCB + tree    → 501 levels  (structural tree detection triggers MCTS in 1-3 episodes)
 ```
 
 ---
