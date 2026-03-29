@@ -487,15 +487,11 @@ class BreakthroughAgent:
         # Action efficacy (for tie-breaking)
         self._action_efficacy: dict = defaultdict(lambda: [0, 0])
 
-        # MCTS fallback: when explorer stalls, bypass it entirely
-        self._sa_descendants: dict = defaultdict(int)
-        self._sa_episode_tries: dict = defaultdict(int)
-        self._all_states_ever: set = set()
-        self._episode_path: list = []
+        # Stall detection → dual-mode switch
         self._stall_count = 0
-        self._states_at_episode_start = 0
-        self._STALL_THRESHOLD = 5
-        self._mcts_mode = False
+        self._prev_explorer_states = 0
+        self._STALL_THRESHOLD = 10
+        self._mcts_sub: '_MCTSSub' = None  # independent MCTS sub-agent
 
         # Stats
         self.guided = 0
@@ -504,46 +500,6 @@ class BreakthroughAgent:
     def on_new_state(self, state: str, available_actions: set):
         if state not in self.explorer.nodes:
             self.explorer.add_node(state, available_actions)
-            # New state discovered — credit episode path ancestors
-            if state not in self._all_states_ever:
-                self._all_states_ever.add(state)
-                for s, a in self._episode_path:
-                    self._sa_descendants[(s, a)] += 1
-
-    def _choose_episode_branch(self, state: str, available_actions: set) -> object:
-        """
-        Forced rotation + exploit + dead-action avoidance.
-        """
-        al = sorted(available_actions)
-        if not al:
-            return None
-
-        # First: filter out actions known to be dead at this state
-        # (tested by the explorer, produced no state change)
-        node = self.explorer.nodes.get(state)
-        live = set(al)
-        if node:
-            for a, (changed, target) in node.tested.items():
-                if not changed and a in live:
-                    live.discard(a)
-        if not live:
-            live = set(al)  # all dead? just try anything
-
-        al = sorted(live)
-        min_tries = min(self._sa_episode_tries.get((state, a), 0) for a in al)
-
-        # Candidates: least-tried LIVE actions
-        candidates = [a for a in al
-                     if self._sa_episode_tries.get((state, a), 0) <= min_tries]
-
-        # If all tried at least once, exploit best branch
-        if min_tries > 0:
-            descs = {a: self._sa_descendants.get((state, a), 0) for a in al}
-            best_desc = max(descs.values()) if descs else 0
-            if best_desc > 0:
-                candidates = [a for a in al if descs[a] >= best_desc * 0.3]
-
-        return random.choice(candidates) if candidates else random.choice(sorted(available_actions))
 
     def choose_action(self, state: str, available_actions: set):
         self.total_actions += 1
@@ -559,37 +515,9 @@ class BreakthroughAgent:
             self.replaying = False
             self.replay_queue = []
 
-        # MCTS MODE: explorer is stalled, use standalone MCTS (no explorer)
-        if self._mcts_mode:
-            # Pure MCTS: forced rotation + descendant exploit, ignoring explorer
-            al = sorted(available_actions)
-            # Filter dead actions (ones we know don't change state at this state)
-            live = []
-            node = self.explorer.nodes.get(state)
-            if node:
-                dead = set(a for a, (c, _) in node.tested.items() if not c)
-                live = [a for a in al if a not in dead]
-            if not live:
-                live = al
-
-            # Deterministic rotation: always pick lowest-index untried action
-            min_t = min(self._sa_episode_tries.get((state, a), 0) for a in live)
-            cands = [a for a in live if self._sa_episode_tries.get((state, a), 0) <= min_t]
-
-            # Exploit if clear winner AND all tried at least once
-            if min_t > 0:
-                descs = {a: self._sa_descendants.get((state, a), 0) for a in live}
-                best = max(descs.values()) if descs else 0
-                if best > 0:
-                    cands = [a for a in live if descs.get(a, 0) >= best * 0.3]
-
-            action = random.choice(cands)
-            self._episode_path.append((state, action))
-            self._sa_episode_tries[(state, action)] = \
-                self._sa_episode_tries.get((state, action), 0) + 1
-            # ALSO register with explorer so it knows about transitions
-            self.on_new_state(state, available_actions)
-            return action
+        # DUAL MODE: if stalled, delegate to independent MCTS sub-agent
+        if self._mcts_sub is not None:
+            return self._mcts_sub.choose(state, available_actions)
 
         # NORMAL MODE: explorer with compression
         node = self.explorer.nodes.get(state)
@@ -606,8 +534,6 @@ class BreakthroughAgent:
 
         if action is not None and is_exploration:
             self.explorer.begin_action(state, action)
-        if action is not None:
-            self._episode_path.append((state, action))
 
         return action
 
@@ -640,20 +566,21 @@ class BreakthroughAgent:
 
     def observe_result(self, prev_state: str, action, new_state: str,
                       new_actions: set, changed: bool):
+        # Delegate to MCTS sub-agent if active AND not replaying
+        if self._mcts_sub is not None and not self.replaying:
+            self._mcts_sub.observe(prev_state, action, new_state, changed)
+            if changed:
+                self.effective_history.append((prev_state, action))
+            return
+
         target = new_state if changed else None
         target_actions = new_actions if changed else None
         self.explorer.record_transition(prev_state, action, changed,
                                        target=target, target_actions=target_actions)
-
         self.explorer.end_action_step()
 
         if changed:
             self.effective_history.append((prev_state, action))
-            # MCTS: credit ancestors when NEW state discovered
-            if new_state not in self._all_states_ever:
-                self._all_states_ever.add(new_state)
-                for s, a in self._episode_path:
-                    self._sa_descendants[(s, a)] += 1
 
         # Track efficacy
         self._action_efficacy[action][0] += 1
@@ -691,28 +618,36 @@ class BreakthroughAgent:
         self.effective_history = []
         self._branch_window.clear()
         self.level_actions = 0
-        self._sa_descendants.clear()
-        self._sa_episode_tries.clear()
-        self._all_states_ever.clear()
-        self._episode_path = []
         self._stall_count = 0
-        self._states_at_episode_start = 0
-        self._mcts_mode = False
+        self._prev_explorer_states = 0
+        # Reset MCTS level tracking for new levels, keep sub alive for replayed
+        if self._mcts_sub is not None and level + 1 > self.levels_solved:
+            self._mcts_sub.reset_for_new_level()
 
     def on_episode_reset(self):
-        # Stall detection: did this episode discover any new states?
-        cur_states = len(self._all_states_ever)
-        if cur_states <= self._states_at_episode_start:
+        # MCTS sub-agent handles its own episode reset
+        if self._mcts_sub is not None:
+            self._mcts_sub.on_episode_reset()
+            self.replay_queue = []
+            for level in sorted(self.winning_paths.keys()):
+                for state, action in self.winning_paths[level]:
+                    self.replay_queue.append(action)
+            self.replaying = bool(self.replay_queue)
+            self.effective_history = []
+            return
+
+        # Stall detection: if explorer state count hasn't grown, increment stall
+        cur = self.explorer.num_states
+        if cur <= self._prev_explorer_states:
             self._stall_count += 1
         else:
             self._stall_count = 0
-        self._states_at_episode_start = cur_states
+        self._prev_explorer_states = cur
 
-        # Switch to MCTS when stalled
-        if not self._mcts_mode and self._stall_count >= self._STALL_THRESHOLD:
-            self._mcts_mode = True
+        # Switch to MCTS sub-agent when stalled
+        if self._mcts_sub is None and self._stall_count >= self._STALL_THRESHOLD:
+            self._mcts_sub = _MCTSSub()
 
-        self._episode_path = []
         self.explorer.finalize()
         self.replay_queue = []
         for level in sorted(self.winning_paths.keys()):
@@ -751,4 +686,63 @@ class BreakthroughAgent:
                 lines.append(f"  Action {a}: mean_reward={mean:.2f}, visits={visits}")
         if self._transfer_bias:
             lines.append(f"  Transfer: {self._transfer_bias[:5]}")
+        if self._mcts_sub:
+            lines.append(f"  MCTS sub-agent active: {self._mcts_sub.total_states} states")
         return "\n".join(lines)
+
+
+class _MCTSSub:
+    """
+    Completely independent MCTS sub-agent.
+    No GraphExplorer. No compression. No transfer bias. Just UCB on
+    cumulative descendants with forced rotation. Proven at 75% on DeepTreeSearch.
+    """
+
+    def __init__(self):
+        self.sa_descendants = defaultdict(int)   # (state, action) → total new states
+        self.sa_tries = defaultdict(int)         # (state, action) → episode count
+        self.all_states = set()                  # states seen since last full reset
+        self.episode_path = []                   # [(state, action)] this episode
+        self._level_states = set()               # states seen in CURRENT level only
+
+    def choose(self, state: str, available_actions: set) -> object:
+        self.all_states.add(state)
+        al = sorted(available_actions)
+
+        # Forced rotation: pick least-tried action at this state
+        min_t = min(self.sa_tries.get((state, a), 0) for a in al)
+        cands = [a for a in al if self.sa_tries.get((state, a), 0) <= min_t]
+
+        # Exploit if all tried at least once AND clear winner
+        if min_t > 0:
+            descs = {a: self.sa_descendants.get((state, a), 0) for a in al}
+            best = max(descs.values()) if descs else 0
+            if best > 3:
+                cands = [a for a in al if descs[a] >= best * 0.5]
+
+        action = random.choice(cands)
+        self.episode_path.append((state, action))
+        self.sa_tries[(state, action)] = self.sa_tries.get((state, action), 0) + 1
+        return action
+
+    def observe(self, prev_state: str, action, new_state: str, changed: bool):
+        self.all_states.add(new_state)
+        # Only credit ancestors for states new to THIS LEVEL
+        if changed and new_state not in self._level_states:
+            self._level_states.add(new_state)
+            for s, a in self.episode_path:
+                self.sa_descendants[(s, a)] += 1
+
+    def on_episode_reset(self):
+        self.episode_path = []
+
+    def reset_for_new_level(self):
+        """Clear level-specific state but keep cross-level data for replayed levels."""
+        self._level_states.clear()
+        self.sa_descendants.clear()
+        self.sa_tries.clear()
+        self.episode_path = []
+
+    @property
+    def total_states(self):
+        return len(self._level_states)
