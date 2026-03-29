@@ -1,0 +1,51 @@
+name: ARC-AGI-3 Explorer Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_actions:
+        description: 'Max actions per game'
+        required: false
+        default: '200000'
+      explorer:
+        description: 'Explorer version (v4 or unified)'
+        required: false
+        default: 'v4'
+
+jobs:
+  arc3-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours max
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/polytopic-attention-implementation-XHkL3
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install arc-agi arcengine scipy numpy
+
+      - name: Run ARC-AGI-3 Explorer
+        env:
+          ARC_API_KEY: "58b421be-5980-4ee8-8e57-0f18dc9369f3"
+          PYTHONIOENCODING: utf-8
+        run: |
+          if [ "${{ github.event.inputs.explorer }}" = "unified" ]; then
+            echo "Running unified explorer..."
+            python olympus/arc3/explorer_unified.py 2>&1 | tee arc3_results.txt
+          else
+            echo "Running v4 explorer at ${{ github.event.inputs.max_actions }} actions..."
+            python olympus/arc3/explorer_v4.py 2>&1 | tee arc3_results.txt
+          fi
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arc3-results
+          path: arc3_results.txt
