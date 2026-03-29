@@ -254,6 +254,106 @@ def solve_4a21e3da(grid):
     return result
 
 
+def solve_13e47133(grid):
+    """Fill regions separated by border lines with concentric rectangular rings.
+
+    The grid has a background color, border lines (most common non-bg color),
+    and marker cells. Each region defined by borders gets filled with concentric
+    rings alternating between marker colors based on BFS distance from boundary.
+    """
+    H = len(grid)
+    W = len(grid[0])
+
+    colors = Counter()
+    for r in range(H):
+        for c in range(W):
+            colors[grid[r][c]] += 1
+    bg = colors.most_common(1)[0][0]
+
+    non_bg = [(c, cnt) for c, cnt in colors.items() if c != bg]
+    non_bg.sort(key=lambda x: -x[1])
+    border_val = non_bg[0][0]
+
+    visited = [[False] * W for _ in range(H)]
+    regions = []
+    for r in range(H):
+        for c in range(W):
+            if grid[r][c] != border_val and not visited[r][c]:
+                comp = []
+                q = deque([(r, c)])
+                visited[r][c] = True
+                while q:
+                    cr, cc = q.popleft()
+                    comp.append((cr, cc))
+                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nr, nc = cr + dr, cc + dc
+                        if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and grid[nr][nc] != border_val:
+                            visited[nr][nc] = True
+                            q.append((nr, nc))
+                markers = []
+                for cr, cc in comp:
+                    if grid[cr][cc] != bg:
+                        markers.append((cr, cc, grid[cr][cc]))
+                regions.append((comp, markers))
+
+    result = [row[:] for row in grid]
+
+    for comp, markers in regions:
+        if not markers:
+            continue
+
+        comp_set = set(map(tuple, comp))
+
+        # Compute ring depth via BFS from boundary
+        dist = {}
+        q = deque()
+        for r, c in comp:
+            on_boundary = False
+            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nr, nc = r + dr, c + dc
+                if not (0 <= nr < H and 0 <= nc < W) or (nr, nc) not in comp_set:
+                    on_boundary = True
+                    break
+            if on_boundary:
+                dist[(r, c)] = 0
+                q.append((r, c))
+        while q:
+            r, c = q.popleft()
+            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nr, nc = r + dr, c + dc
+                if (nr, nc) in comp_set and (nr, nc) not in dist:
+                    dist[(nr, nc)] = dist[(r, c)] + 1
+                    q.append((nr, nc))
+
+        # Sort markers by depth
+        markers_sorted = sorted(markers, key=lambda m: dist.get((m[0], m[1]), 0))
+        min_depth = dist.get((markers_sorted[0][0], markers_sorted[0][1]), 0)
+
+        if min_depth == 0 and len(set(m[2] for m in markers)) == 1:
+            # Single color at boundary -> solid fill
+            color = markers_sorted[0][2]
+            for r, c in comp:
+                result[r][c] = color
+        else:
+            # Build color sequence starting from depth 0
+            ring_colors = []
+            if min_depth > 0:
+                ring_colors = [bg] * min_depth
+
+            for m in markers_sorted:
+                d = dist.get((m[0], m[1]), 0)
+                while len(ring_colors) < d:
+                    ring_colors.append(ring_colors[-1] if ring_colors else bg)
+                ring_colors.append(m[2])
+
+            for r, c in comp:
+                d = dist.get((r, c), 0)
+                color = ring_colors[d % len(ring_colors)]
+                result[r][c] = color
+
+    return result
+
+
 ARC2_SOLVERS_D = {
     "800d221b": solve_800d221b,
     "4a21e3da": solve_4a21e3da,
