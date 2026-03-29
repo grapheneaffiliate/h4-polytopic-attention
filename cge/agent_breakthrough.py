@@ -92,6 +92,11 @@ class SmartExplorer:
         self._action_type_visits: dict = defaultdict(int)
         self._total_visits = 0
 
+        # Feature-based learning: extract features from actions (parity, range, etc.)
+        # and learn which features predict high reward across ALL states
+        self._feature_rewards: dict = defaultdict(list)  # feature -> [rewards]
+        self._feature_visits: dict = defaultdict(int)
+
         # Track descendants per action
         self._pending_source: Optional[str] = None
         self._pending_action = None
@@ -179,6 +184,11 @@ class SmartExplorer:
         self._action_type_visits[action] += 1
         self._total_visits += 1
 
+        # Feature-based learning (structural transfer)
+        for feat in self._action_features(action):
+            self._feature_rewards[feat].append(reward)
+            self._feature_visits[feat] += 1
+
         if state in self.nodes:
             node = self.nodes[state]
             node.action_descendants[action] += new_states
@@ -186,6 +196,19 @@ class SmartExplorer:
 
         self._pending_source = None
         self._pending_action = None
+
+    @staticmethod
+    def _action_features(action) -> list:
+        """Extract generalizable features from an action.
+        This is where structural learning happens: the agent learns that
+        'even-indexed actions are productive' across all states."""
+        features = []
+        if isinstance(action, int):
+            features.append(("parity", action % 2))
+            features.append(("mod3", action % 3))
+            features.append(("range4", action // 4))
+            features.append(("low", int(action < 4)))
+        return features
 
     def finalize(self):
         """Call at end of episode to record any pending exploration."""
@@ -204,11 +227,9 @@ class SmartExplorer:
 
         untested = node.untested
         if untested:
-            # Check if UCB has useful signal at this state
             if self._has_discriminative_signal(current):
                 return self._ucb1_select(untested, action_order, current_state=current)
             else:
-                # No clear winner — use compression ordering
                 if action_order:
                     for a in action_order:
                         if a in untested:
@@ -281,7 +302,6 @@ class SmartExplorer:
         best_action = None
 
         for action in actions:
-            # Try per-state UCB first
             if current_state and state_visits >= 2:
                 sa_key = (current_state, action)
                 n_i = self._sa_visits.get(sa_key, 0)
@@ -291,16 +311,12 @@ class SmartExplorer:
                 else:
                     rewards = self._sa_rewards.get(sa_key, [0])
                     mean_reward = sum(rewards) / max(len(rewards), 1)
-                    # Adaptive C: decay as confidence grows
-                    # After 10+ visits, we're confident — reduce exploration
                     effective_C = self.C / (1 + n_i / 10.0)
                     exploration = effective_C * math.sqrt(math.log(N + 1) / n_i)
                     score = mean_reward + exploration
-                    # Hard floor: actions with 0 reward after 10+ visits get penalized
                     if n_i >= 10 and mean_reward == 0:
                         score = -1.0
             else:
-                # Fall back to global
                 n_i = self._action_type_visits.get(action, 0)
                 N = self._total_visits
                 if n_i == 0:
@@ -325,6 +341,33 @@ class SmartExplorer:
                     best_action = action
 
         return best_action if best_action is not None else random.choice(list(actions))
+
+    def _feature_prior_bonus(self, action) -> float:
+        """
+        Small bonus for ordering UNVISITED actions based on structural features.
+        Returns 0-1 range — just a tiebreaker, doesn't block exploration.
+        Key insight: this orders which unvisited actions to try FIRST,
+        but all unvisited actions still get tried eventually.
+        """
+        features = self._action_features(action)
+        if not features:
+            return 0.0
+
+        total_weight = 0.0
+        weighted_reward = 0.0
+        for feat in features:
+            visits = self._feature_visits.get(feat, 0)
+            if visits >= 10:
+                rewards = self._feature_rewards.get(feat, [0])
+                mean_r = sum(rewards) / max(len(rewards), 1)
+                weight = math.log(visits + 1)
+                weighted_reward += mean_r * weight
+                total_weight += weight
+
+        if total_weight == 0:
+            return 0.0
+
+        return weighted_reward / total_weight  # 0-1 range
 
     def _close_node(self, name):
         if name not in self.nodes:
