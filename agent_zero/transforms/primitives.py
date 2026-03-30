@@ -683,6 +683,238 @@ def apply_to_each_component(grid: np.ndarray,
 # ---------------------------------------------------------------------------
 # Auto-discovery
 # ---------------------------------------------------------------------------
+# Conditional / Spatial transforms (high-impact additions)
+# ---------------------------------------------------------------------------
+
+def fill_enclosed_with_color(grid: np.ndarray, fill_color: int = 4, background: int = 0) -> np.ndarray:
+    """Fill enclosed regions with a specific color (not necessarily the border color)."""
+    out = grid.copy()
+    h, w = out.shape
+    reachable = np.zeros((h, w), dtype=bool)
+    queue: deque[Tuple[int, int]] = deque()
+    for r in range(h):
+        for c in range(w):
+            if (r == 0 or r == h - 1 or c == 0 or c == w - 1) and out[r, c] == background:
+                reachable[r, c] = True
+                queue.append((r, c))
+    while queue:
+        cr, cc = queue.popleft()
+        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nr, nc = cr + dr, cc + dc
+            if 0 <= nr < h and 0 <= nc < w and not reachable[nr, nc] and out[nr, nc] == background:
+                reachable[nr, nc] = True
+                queue.append((nr, nc))
+    interior = (out == background) & ~reachable
+    out[interior] = fill_color
+    return out
+
+
+def fill_enclosed_per_region(grid: np.ndarray, background: int = 0) -> np.ndarray:
+    """Fill each enclosed region with a unique NEW color (starting from max+1).
+    Each separate enclosed cavity gets its own color."""
+    out = grid.copy()
+    h, w = out.shape
+    reachable = np.zeros((h, w), dtype=bool)
+    queue: deque[Tuple[int, int]] = deque()
+    for r in range(h):
+        for c in range(w):
+            if (r == 0 or r == h - 1 or c == 0 or c == w - 1) and out[r, c] == background:
+                reachable[r, c] = True
+                queue.append((r, c))
+    while queue:
+        cr, cc = queue.popleft()
+        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nr, nc = cr + dr, cc + dc
+            if 0 <= nr < h and 0 <= nc < w and not reachable[nr, nc] and out[nr, nc] == background:
+                reachable[nr, nc] = True
+                queue.append((nr, nc))
+    interior = (out == background) & ~reachable
+    if not interior.any():
+        return out
+    # BFS label each interior region
+    next_color = int(out.max()) + 1
+    labeled = np.zeros((h, w), dtype=bool)
+    for r in range(h):
+        for c in range(w):
+            if interior[r, c] and not labeled[r, c]:
+                q2: deque[Tuple[int, int]] = deque([(r, c)])
+                labeled[r, c] = True
+                while q2:
+                    cr2, cc2 = q2.popleft()
+                    out[cr2, cc2] = next_color
+                    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                        nr, nc = cr2 + dr, cc2 + dc
+                        if 0 <= nr < h and 0 <= nc < w and interior[nr, nc] and not labeled[nr, nc]:
+                            labeled[nr, nc] = True
+                            q2.append((nr, nc))
+                next_color = min(next_color + 1, 9)
+    return out
+
+
+def fill_adjacent_to_color(grid: np.ndarray, target_color: int = 0,
+                           near_color: int = 1, fill_color: int = 2) -> np.ndarray:
+    """Fill cells of target_color that are adjacent (4-connected) to near_color with fill_color."""
+    out = grid.copy()
+    h, w = out.shape
+    for r in range(h):
+        for c in range(w):
+            if out[r, c] == target_color:
+                for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                    nr, nc = r + dr, c + dc
+                    if 0 <= nr < h and 0 <= nc < w and grid[nr, nc] == near_color:
+                        out[r, c] = fill_color
+                        break
+    return out
+
+
+def draw_line_between_same_color(grid: np.ndarray, color: int = 1,
+                                  line_color: int = 1) -> np.ndarray:
+    """Draw horizontal or vertical lines between pairs of cells of the same color.
+    Only draws if the cells share a row or column with only background between them."""
+    out = grid.copy()
+    h, w = out.shape
+    # Find all cells of the target color
+    cells = [(r, c) for r in range(h) for c in range(w) if grid[r, c] == color]
+    # For each pair sharing a row
+    for i, (r1, c1) in enumerate(cells):
+        for r2, c2 in cells[i+1:]:
+            if r1 == r2:  # same row
+                cmin, cmax = min(c1, c2), max(c1, c2)
+                if all(grid[r1, c] == 0 or grid[r1, c] == color for c in range(cmin, cmax + 1)):
+                    for c in range(cmin, cmax + 1):
+                        out[r1, c] = line_color
+            elif c1 == c2:  # same column
+                rmin, rmax = min(r1, r2), max(r1, r2)
+                if all(grid[r, c1] == 0 or grid[r, c1] == color for r in range(rmin, rmax + 1)):
+                    for r in range(rmin, rmax + 1):
+                        out[r, c1] = line_color
+    return out
+
+
+def move_object_until_wall(grid: np.ndarray, obj_color: int = 1,
+                           wall_color: int = 2, direction: str = "down",
+                           background: int = 0) -> np.ndarray:
+    """Move all cells of obj_color in a direction until they hit wall_color or grid edge."""
+    out = grid.copy()
+    h, w = out.shape
+    obj_cells = [(r, c) for r in range(h) for c in range(w) if grid[r, c] == obj_color]
+    if not obj_cells:
+        return out
+
+    dr, dc = {"down": (1, 0), "up": (-1, 0), "right": (0, 1), "left": (0, -1)}[direction]
+
+    # Clear original positions
+    for r, c in obj_cells:
+        out[r, c] = background
+
+    # Find max shift
+    max_shift = max(h, w)
+    for shift in range(1, max_shift):
+        blocked = False
+        for r, c in obj_cells:
+            nr, nc = r + dr * shift, c + dc * shift
+            if not (0 <= nr < h and 0 <= nc < w):
+                blocked = True
+                break
+            if grid[nr, nc] == wall_color:
+                blocked = True
+                break
+        if blocked:
+            shift -= 1
+            break
+
+    # Place at new position
+    for r, c in obj_cells:
+        nr, nc = r + dr * shift, c + dc * shift
+        if 0 <= nr < h and 0 <= nc < w:
+            out[nr, nc] = obj_color
+    return out
+
+
+def extract_subgrid_by_color(grid: np.ndarray, border_color: int = 1) -> np.ndarray:
+    """Extract the rectangular region bounded by cells of border_color (exclusive)."""
+    rows = np.any(grid == border_color, axis=1)
+    cols = np.any(grid == border_color, axis=0)
+    if not rows.any() or not cols.any():
+        return grid
+    r1, r2 = np.where(rows)[0][[0, -1]]
+    c1, c2 = np.where(cols)[0][[0, -1]]
+    return grid[r1+1:r2, c1+1:c2].copy()
+
+
+def extract_subgrid_by_color_inclusive(grid: np.ndarray, border_color: int = 1) -> np.ndarray:
+    """Extract the rectangular region bounded by cells of border_color (inclusive)."""
+    rows = np.any(grid == border_color, axis=1)
+    cols = np.any(grid == border_color, axis=0)
+    if not rows.any() or not cols.any():
+        return grid
+    r1, r2 = np.where(rows)[0][[0, -1]]
+    c1, c2 = np.where(cols)[0][[0, -1]]
+    return grid[r1:r2+1, c1:c2+1].copy()
+
+
+def recolor_by_size(grid: np.ndarray, small_color: int = 1,
+                    large_color: int = 2, background: int = 0) -> np.ndarray:
+    """Connected components: smaller ones get small_color, larger ones get large_color."""
+    out = grid.copy()
+    h, w = out.shape
+    visited = np.zeros((h, w), dtype=bool)
+    components = []
+    for r in range(h):
+        for c in range(w):
+            if grid[r, c] != background and not visited[r, c]:
+                color = grid[r, c]
+                cells = []
+                q: deque[Tuple[int, int]] = deque([(r, c)])
+                visited[r, c] = True
+                while q:
+                    cr, cc = q.popleft()
+                    cells.append((cr, cc))
+                    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                        nr, nc = cr + dr, cc + dc
+                        if 0 <= nr < h and 0 <= nc < w and not visited[nr, nc] and grid[nr, nc] == color:
+                            visited[nr, nc] = True
+                            q.append((nr, nc))
+                components.append(cells)
+    if len(components) < 2:
+        return out
+    sizes = [len(c) for c in components]
+    median_size = sorted(sizes)[len(sizes)//2]
+    for cells in components:
+        c = small_color if len(cells) <= median_size else large_color
+        for r, cc in cells:
+            out[r, cc] = c
+    return out
+
+
+def copy_pattern_to_markers(grid: np.ndarray, pattern_color: int = 1,
+                            marker_color: int = 2, background: int = 0) -> np.ndarray:
+    """Find a pattern (connected component of pattern_color), then copy it to
+    every cell of marker_color. The marker cell becomes the top-left of the copied pattern."""
+    out = grid.copy()
+    h, w = out.shape
+    # Find pattern bounding box
+    pat_cells = np.argwhere(grid == pattern_color)
+    if pat_cells.size == 0:
+        return out
+    pr1, pc1 = pat_cells.min(axis=0)
+    pr2, pc2 = pat_cells.max(axis=0)
+    pattern = grid[pr1:pr2+1, pc1:pc2+1].copy()
+    ph, pw = pattern.shape
+    # Find markers
+    markers = np.argwhere(grid == marker_color)
+    for mr, mc in markers:
+        out[mr, mc] = background  # clear marker
+        for r in range(ph):
+            for c in range(pw):
+                if pattern[r, c] == pattern_color:
+                    nr, nc = mr + r, mc + c
+                    if 0 <= nr < h and 0 <= nc < w:
+                        out[nr, nc] = pattern_color
+    return out
+
+
+# ---------------------------------------------------------------------------
 
 # Auto-discover all primitives
 import types as _types

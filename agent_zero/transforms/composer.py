@@ -362,6 +362,48 @@ class TransformComposer:
             elif name == 'apply_to_each_component':
                 pass  # needs fn, skip in auto-param
 
+            # NEW conditional/spatial primitives
+            elif name == 'fill_enclosed_with_color':
+                for fc in all_output_colors:
+                    candidates.append((name, fn, {'fill_color': fc, 'background': 0}))
+
+            elif name == 'fill_enclosed_per_region':
+                candidates.append((name, fn, {'background': 0}))
+
+            elif name == 'fill_adjacent_to_color':
+                for near in all_input_colors - {0}:
+                    for fc in all_output_colors - all_input_colors:
+                        candidates.append((name, fn, {'target_color': 0, 'near_color': near, 'fill_color': fc}))
+                    for fc in all_output_colors:
+                        if fc != near:
+                            candidates.append((name, fn, {'target_color': 0, 'near_color': near, 'fill_color': fc}))
+
+            elif name == 'draw_line_between_same_color':
+                for c in all_input_colors - {0}:
+                    candidates.append((name, fn, {'color': c, 'line_color': c}))
+                    for lc in all_output_colors - {0, c}:
+                        candidates.append((name, fn, {'color': c, 'line_color': lc}))
+
+            elif name == 'move_object_until_wall':
+                for obj_c in all_input_colors - {0}:
+                    for wall_c in all_input_colors - {0, obj_c}:
+                        for d in ['down', 'up', 'left', 'right']:
+                            candidates.append((name, fn, {'obj_color': obj_c, 'wall_color': wall_c, 'direction': d}))
+
+            elif name in ('extract_subgrid_by_color', 'extract_subgrid_by_color_inclusive'):
+                for c in all_input_colors - {0}:
+                    candidates.append((name, fn, {'border_color': c}))
+
+            elif name == 'recolor_by_size':
+                for sc in all_output_colors - {0}:
+                    for lc in all_output_colors - {0, sc}:
+                        candidates.append((name, fn, {'small_color': sc, 'large_color': lc}))
+
+            elif name == 'copy_pattern_to_markers':
+                for pc in all_input_colors - {0}:
+                    for mc in all_input_colors - {0, pc}:
+                        candidates.append((name, fn, {'pattern_color': pc, 'marker_color': mc}))
+
             else:
                 # Try with no params
                 try:
