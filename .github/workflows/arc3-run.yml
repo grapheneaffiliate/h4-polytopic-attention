@@ -8,9 +8,9 @@ on:
         required: false
         default: '200000'
       explorer:
-        description: 'Explorer version (v4 or unified)'
+        description: 'Explorer version (v5_ucb, v4, or unified)'
         required: false
-        default: 'v4'
+        default: 'v5_ucb'
 
 jobs:
   arc3-run:
@@ -35,12 +35,16 @@ jobs:
           ARC_API_KEY: "58b421be-5980-4ee8-8e57-0f18dc9369f3"
           PYTHONIOENCODING: utf-8
         run: |
-          if [ "${{ github.event.inputs.explorer }}" = "unified" ]; then
+          EXPLORER="${{ github.event.inputs.explorer }}"
+          if [ "$EXPLORER" = "unified" ]; then
             echo "Running unified explorer..."
             python olympus/arc3/explorer_unified.py 2>&1 | tee arc3_results.txt
-          else
+          elif [ "$EXPLORER" = "v4" ]; then
             echo "Running v4 explorer at ${{ github.event.inputs.max_actions }} actions..."
             python olympus/arc3/explorer_v4.py 2>&1 | tee arc3_results.txt
+          else
+            echo "Running v5_ucb explorer (UCB1 + stall detection) at ${{ github.event.inputs.max_actions }} actions..."
+            python olympus/arc3/explorer_v5_ucb.py 2>&1 | tee arc3_results.txt
           fi
 
       - name: Upload results
