@@ -446,10 +446,12 @@ class UnifiedAgentV5:
         # Reverse lookup: (frame_hash, game_action_id, x, y) -> action_idx
         self._reverse_action = {}
 
-        # UCB1 + stall detection (from CGE breakthrough)
-        self._stall_count = 0
-        self._prev_states = 0
-        self._STALL_THRESHOLD = 10
+        # Action efficacy tracking for smart mode switching
+        self._segment_actions_taken = 0
+        self._segment_actions_changed = 0
+        self._EFFICACY_CHECK_AT = 20000       # check after 20K actions
+        self._EFFICACY_SWITCH_THRESHOLD = 0.05 # switch if <5% of actions change frame
+        self._FALLBACK_AT = 100000            # if 0 levels at 100K, try other mode
 
     def _build_click_grid(self, H, W, step=None):
         if step is None:
@@ -461,22 +463,55 @@ class UnifiedAgentV5:
         self.click_grid = points
 
     def _check_switch_to_grid(self):
-        """Auto-switch to grid-click if exploration is stuck. Multi-step escalation."""
+        """Efficacy-based mode switching + fallback safety net.
+
+        Three triggers:
+        1. Low state count after 3K actions (v4 original — catches truly stuck games)
+        2. Low action efficacy after 20K actions (new — catches r11l/tu93 type games
+           where segment clicks do nothing but state count isn't zero)
+        3. Zero levels at 100K → try other mode for remaining budget
+        """
+        # Trigger 1: v4 original — very few states = completely stuck
         if (self.mode == "segment" and
             self.total_actions_this_level >= self.GRID_CLICK_CHECK_AT and
             self.explorer.num_states < self.GRID_CLICK_THRESHOLD):
             self._switch_mode("grid", self.grid_step)
             return True
+
+        # Trigger 2: low efficacy — segment clicks aren't doing anything useful
+        if (self.mode == "segment" and
+            self.total_actions_this_level >= self._EFFICACY_CHECK_AT and
+            self._segment_actions_taken >= 1000):
+            efficacy = self._segment_actions_changed / max(self._segment_actions_taken, 1)
+            if efficacy < self._EFFICACY_SWITCH_THRESHOLD:
+                self._switch_mode("grid", self.grid_step)
+                return True
+
+        # Trigger 3: grid escalation — still stuck after grid mode
         if (self.mode == "grid" and self.grid_step > 2 and
             self.total_actions_this_level >= self.GRID_REFINE_CHECK_AT and
             self.explorer.num_states < self.GRID_REFINE_THRESHOLD):
             self._switch_mode("grid_fine", 2)
             return True
+
+        # Trigger 4: fallback — 0 levels at 100K → try other mode
+        if (self.total_actions_this_level >= self._FALLBACK_AT and
+            self.current_level == 0):
+            if self.mode == "segment":
+                self._switch_mode("grid", self.grid_step)
+                return True
+            elif self.mode == "grid" and self.grid_step > 2:
+                self._switch_mode("grid_fine", 2)
+                return True
+
         return False
 
     def _switch_mode(self, new_mode, new_step):
         self.mode = new_mode
         self.grid_step = new_step
+        # Reset efficacy tracking for new mode
+        self._segment_actions_taken = 0
+        self._segment_actions_changed = 0
         self.explorer.reset()
         self.frame_segments_cache.clear()
         self.frame_groups_cache.clear()
@@ -683,6 +718,12 @@ class UnifiedAgentV5:
         # UCB1 reward: 1.0 if state changed, 0.0 if not
         if prev_hash is not None and action_idx is not None:
             self.explorer.record_ucb_reward(prev_hash, action_idx, 1.0 if success else 0.0)
+
+        # Track action efficacy for mode switching
+        if not self.replaying:
+            self._segment_actions_taken += 1
+            if success:
+                self._segment_actions_changed += 1
 
     def observe_death(self, prev_hash, action_idx):
         if prev_hash is not None and action_idx is not None:
