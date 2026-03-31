@@ -601,21 +601,8 @@ class UnifiedAgentV5:
             self.estimated_episode_budget = recent[len(recent) // 2]
         self.retry_count += 1
 
-        # Stall detection: if no new states, force mode switch
-        cur = self.explorer.num_states
-        if cur <= self._prev_states:
-            self._stall_count += 1
-        else:
-            self._stall_count = 0
-        self._prev_states = cur
-
-        if self._stall_count >= self._STALL_THRESHOLD:
-            # Force mode switch to break out of stall
-            if self.mode == "segment":
-                self._switch_mode("grid", self.grid_step)
-            elif self.mode == "grid" and self.grid_step > 2:
-                self._switch_mode("grid_fine", 2)
-            self._stall_count = 0
+        # NO stall-triggered mode switching — v4's _check_switch_to_grid handles it.
+        # UCB1 handles action selection within whichever mode we're in.
 
         self.replay_queue = []
         for level in sorted(self.winning_paths.keys()):
