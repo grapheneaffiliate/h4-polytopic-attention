@@ -691,17 +691,17 @@ class UnifiedAgentV6:
         # Action classifier override: if the explorer picked an untested action
         # and we have classifier data, prefer high-change-rate actions instead
         if (action_idx is not None and frame_hash in self.explorer.nodes
-            and action_idx in self.explorer.nodes[frame_hash].untested
+            and self.explorer.nodes[frame_hash].has_open(self.explorer.active_group)
             and sum(self._action_total_count.values()) > 100):
-            # Among untested actions at this state, pick the one with
-            # highest observed change rate globally
             node = self.explorer.nodes[frame_hash]
-            untested = list(node.untested)
-            if len(untested) > 1:
-                # Sort by action classifier priority (high change rate first)
-                scored = [(a, self._get_action_priority(a)) for a in untested]
+            # Gather all untested actions across active groups
+            open_actions = set()
+            for g in range(self.explorer.active_group + 1):
+                if g < len(node.groups):
+                    open_actions |= node.groups[g]
+            if len(open_actions) > 1:
+                scored = [(a, self._get_action_priority(a)) for a in open_actions]
                 scored.sort(key=lambda x: -x[1])
-                # Pick the best if it's significantly better than random
                 if scored[0][1] > scored[-1][1] + 0.1:
                     action_idx = scored[0][0]
 
