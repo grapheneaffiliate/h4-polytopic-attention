@@ -8,14 +8,14 @@ on:
         required: false
         default: '200000'
       explorer:
-        description: 'Explorer version (v5_ucb, v4, or unified)'
+        description: 'Explorer version (v6, v5_ucb, v4, or unified)'
         required: false
-        default: 'v5_ucb'
+        default: 'v6'
 
 jobs:
   arc3-run:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # 6 hours max
+    timeout-minutes: 360
 
     steps:
       - uses: actions/checkout@v4
@@ -40,11 +40,14 @@ jobs:
             echo "Running unified explorer..."
             python olympus/arc3/explorer_unified.py 2>&1 | tee arc3_results.txt
           elif [ "$EXPLORER" = "v4" ]; then
-            echo "Running v4 explorer at ${{ github.event.inputs.max_actions }} actions..."
+            echo "Running v4 explorer..."
             python olympus/arc3/explorer_v4.py 2>&1 | tee arc3_results.txt
-          else
-            echo "Running v5_ucb explorer (UCB1 + stall detection) at ${{ github.event.inputs.max_actions }} actions..."
+          elif [ "$EXPLORER" = "v5_ucb" ]; then
+            echo "Running v5_ucb explorer..."
             python olympus/arc3/explorer_v5_ucb.py 2>&1 | tee arc3_results.txt
+          else
+            echo "Running v6 adaptive (UCB1 + efficacy switch + variable budget)..."
+            python olympus/arc3/explorer_v6_adaptive.py 2>&1 | tee arc3_results.txt
           fi
 
       - name: Upload results
