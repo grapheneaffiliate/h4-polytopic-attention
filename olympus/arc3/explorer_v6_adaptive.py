@@ -688,6 +688,23 @@ class UnifiedAgentV6:
 
         action_idx = self.explorer.choose_action(frame_hash)
 
+        # Action classifier override: if the explorer picked an untested action
+        # and we have classifier data, prefer high-change-rate actions instead
+        if (action_idx is not None and frame_hash in self.explorer.nodes
+            and action_idx in self.explorer.nodes[frame_hash].untested
+            and sum(self._action_total_count.values()) > 100):
+            # Among untested actions at this state, pick the one with
+            # highest observed change rate globally
+            node = self.explorer.nodes[frame_hash]
+            untested = list(node.untested)
+            if len(untested) > 1:
+                # Sort by action classifier priority (high change rate first)
+                scored = [(a, self._get_action_priority(a)) for a in untested]
+                scored.sort(key=lambda x: -x[1])
+                # Pick the best if it's significantly better than random
+                if scored[0][1] > scored[-1][1] + 0.1:
+                    action_idx = scored[0][0]
+
         if action_idx is not None and frame_hash in self.segment_to_action:
             action_map = self.segment_to_action[frame_hash]
             if action_idx in action_map:
@@ -734,6 +751,16 @@ class UnifiedAgentV6:
             self._segment_actions_taken += 1
             if success:
                 self._segment_actions_changed += 1
+
+    def _get_action_priority(self, action_idx):
+        """Action classifier: returns priority score based on observed change rate.
+        Actions that frequently change the frame get higher priority.
+        Actions that NEVER change the frame get deprioritized."""
+        total = self._action_total_count.get(action_idx, 0)
+        if total < 5:
+            return 0.5  # unknown — neutral
+        changes = self._action_change_count.get(action_idx, 0)
+        return changes / total
 
         # Track action efficacy for mode switching
         if not self.replaying:
