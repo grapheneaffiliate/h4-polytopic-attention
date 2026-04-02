@@ -224,7 +224,8 @@ class HandoffManager:
             # Count action frequencies in winning path
             from collections import Counter
             if isinstance(winning_path[0], tuple):
-                action_counts = Counter(a for _, a in winning_path)
+                # winning_path entries can be 2-tuples (state, action) or 3-tuples (action_id, x, y)
+                action_counts = Counter(t[0] for t in winning_path)
             else:
                 action_counts = Counter(winning_path)
             top_actions = action_counts.most_common(3)
