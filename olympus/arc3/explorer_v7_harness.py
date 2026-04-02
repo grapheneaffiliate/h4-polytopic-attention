@@ -1,14 +1,13 @@
 """
-ARC-AGI-3 Explorer v7 — v6 + harness (memory, evaluator, sprint contract, handoff).
+ARC-AGI-3 Explorer v7 — v6 + active harness.
 
-All v6 features PLUS:
-1. Action-effect memory: remembers what actions DO across episodes
-2. Evaluator: grades exploration every 100 actions, recommends changes
-3. Sprint contract: negotiated plan before each level
-4. Handoff: structured state compression between episodes
+All v6 features PLUS actively driving decisions:
+1. Action-effect memory → UCB1 priors (dead actions pruned, good actions boosted)
+2. Evaluator → mode switching (faster reaction than v6's fixed thresholds)
+3. Sprint contract → dead action removal from groups before exploration
+4. Handoff → cross-episode learning (episode N reads episode N-1's memory)
 
-The harness is the skeleton that the 3B model plugs into.
-All four components are heuristic-based now.
+Target: 50%+ (up from v6's 30/182 = 16.5%)
 """
 
 import hashlib
@@ -76,11 +75,26 @@ class HarnessAgent(UnifiedAgentV6):
         self._level_start_frames: dict = {}  # {level: frame}
         self._level_end_frames: dict = {}    # {level: frame}
 
+        # Memory-driven priors (updated on each evaluation cycle)
+        self._memory_priors: dict = {}  # {game_action_id: weight}
+
+        # Track game_action_id -> set of action_idx mappings for prior injection
+        self._game_action_to_indices: dict = defaultdict(set)  # {game_action_id: {idx, idx, ...}}
+
+        # Evaluator-driven mode switch tracking
+        self._evaluator_switched = False
+
     def choose_action(self, frame, available_actions, levels_completed):
-        """Override to add harness hooks."""
+        """Override to inject memory priors and evaluator-driven decisions."""
         # Level-up detection (before parent handles it)
         if levels_completed > self.current_level:
             self._on_level_complete_harness(frame)
+
+        # Inject memory priors into GraphExplorer's UCB BEFORE parent chooses
+        self._inject_memory_priors()
+
+        # Prune dead actions from explorer node groups BEFORE parent chooses
+        self._prune_dead_actions_from_groups(frame, available_actions)
 
         result = super().choose_action(frame, available_actions, levels_completed)
 
@@ -91,8 +105,7 @@ class HarnessAgent(UnifiedAgentV6):
         if isinstance(result, tuple) and len(result) >= 1:
             self._unique_actions_used.add(result[0])
 
-        # Evaluator check
-        self.total_actions_this_level  # already incremented by parent
+        # Evaluator check — actively drives mode switching
         if self.evaluator.should_evaluate(self.total_actions_this_level):
             self._run_evaluation()
 
@@ -102,24 +115,107 @@ class HarnessAgent(UnifiedAgentV6):
 
         return result
 
+    def _inject_memory_priors(self):
+        """Inject memory-based priors into GraphExplorer's UCB1 reward tracking.
+
+        For each action the memory knows about:
+        - Dead actions (0% change rate, 10+ observations): inject negative rewards
+        - High change rate actions: inject positive rewards as a prior
+        This biases UCB1 without overriding it — the agent can still explore.
+        """
+        if not self.memory.action_models:
+            return
+        if self.total_actions_this_level < 50:
+            return  # let the agent explore freely at start
+
+        self.explorer._init_ucb()
+
+        for game_action_id, model in self.memory.action_models.items():
+            if model.total_observations < 5:
+                continue
+
+            # Find all action_idx that map to this game_action_id
+            indices = self._game_action_to_indices.get(game_action_id, set())
+            if not indices:
+                continue
+
+            for action_idx in indices:
+                for state in list(self.explorer.nodes.keys())[-20:]:  # recent states only
+                    sa = (state, action_idx)
+                    existing = self.explorer._sa_visits.get(sa, 0)
+                    if existing > 0:
+                        continue  # don't override real observations
+
+                    # Inject synthetic prior (1 observation worth)
+                    if model.change_rate == 0 and model.total_observations >= 10:
+                        # Dead action: inject 0 reward
+                        self.explorer._sa_rewards[sa] = [0.0]
+                        self.explorer._sa_visits[sa] = 3  # enough to trigger dead-action pruning
+                        self.explorer._state_visits[state] = max(
+                            self.explorer._state_visits.get(state, 0), 3)
+                    elif model.change_rate > 0.3:
+                        # Good action: inject positive reward as weak prior
+                        self.explorer._sa_rewards[sa] = [model.change_rate]
+                        self.explorer._sa_visits[sa] = 1
+                        self.explorer._state_visits[state] = max(
+                            self.explorer._state_visits.get(state, 0), 1)
+
+    def _prune_dead_actions_from_groups(self, frame, available_actions):
+        """Remove known-dead actions from explorer node groups.
+
+        If memory says action X never changes the frame (10+ observations),
+        remove all action_idx mapping to X from untested groups.
+        This prevents the explorer from wasting time on them.
+        """
+        if not self.memory.action_models:
+            return
+
+        # Get dead game actions
+        dead_game_actions = set()
+        for game_action_id, model in self.memory.action_models.items():
+            if model.change_rate == 0 and model.total_observations >= 15:
+                dead_game_actions.add(game_action_id)
+
+        if not dead_game_actions:
+            return
+
+        # Find action_idx values for dead game actions and remove from groups
+        dead_indices = set()
+        for ga in dead_game_actions:
+            dead_indices.update(self._game_action_to_indices.get(ga, set()))
+
+        if not dead_indices:
+            return
+
+        # Remove from current node's groups
+        fh = hash_frame(frame, self.status_bar_mask) if self.status_bar_mask is not None else hash_frame(frame)
+        if fh in self.explorer.nodes:
+            node = self.explorer.nodes[fh]
+            for g in node.groups:
+                g -= dead_indices
+
     def observe_result(self, prev_hash, action_idx, new_frame, available_actions,
                       last_action_tuple=None):
-        """Override to record action effects in memory."""
+        """Override to record action effects and build action mappings."""
         # Call parent
         super().observe_result(prev_hash, action_idx, new_frame, available_actions,
                               last_action_tuple)
 
+        # Resolve game_action_id and build mapping
+        game_action = 0
+        if last_action_tuple and isinstance(last_action_tuple, tuple):
+            game_action = last_action_tuple[0]
+        elif action_idx is not None and prev_hash in self.segment_to_action:
+            action_map = self.segment_to_action[prev_hash]
+            if action_idx in action_map:
+                game_action = action_map[action_idx][0]
+
+        # Build game_action → action_idx mapping for prior injection
+        if action_idx is not None and game_action > 0:
+            self._game_action_to_indices[game_action].add(action_idx)
+
         # Record in memory
         if self._prev_frame is not None and action_idx is not None:
-            # Use game action ID for memory (more meaningful than internal idx)
-            game_action = 0
-            if last_action_tuple and isinstance(last_action_tuple, tuple):
-                game_action = last_action_tuple[0]
-            elif action_idx is not None and prev_hash in self.segment_to_action:
-                action_map = self.segment_to_action[prev_hash]
-                if action_idx in action_map:
-                    game_action = action_map[action_idx][0]
-
             self.memory.record(
                 action=game_action,
                 prev_frame=self._prev_frame,
@@ -174,6 +270,7 @@ class HarnessAgent(UnifiedAgentV6):
     def _on_level_complete_harness(self, frame):
         """Called when a level is completed, before parent processes it."""
         level = self.current_level
+        self._evaluator_switched = False  # reset for next level
 
         # Record end frame
         self._level_end_frames[level] = frame.copy()
@@ -235,37 +332,40 @@ class HarnessAgent(UnifiedAgentV6):
 
         result = self.evaluator.evaluate(context)
 
-        # Act on strong signals only (don't override v6's own mode switching)
-        if result.should_switch_mode and result.suggested_mode:
-            # Only switch if v6 hasn't already switched and we have enough evidence
-            if self.total_actions_this_level > 10000:
-                # Let v6's own logic handle it — evaluator's signal is informational
-                pass
+        # ACTIVE: evaluator drives mode switching
+        # Override v6's fixed thresholds with memory-informed decisions
+        if (result.should_switch_mode and result.suggested_mode
+            and not self._evaluator_switched
+            and self.mode != result.suggested_mode):
+            # Evaluator says switch — do it, but only once per level
+            self._switch_mode(result.suggested_mode,
+                            2 if result.suggested_mode == "grid_fine" else self.grid_step)
+            self._evaluator_switched = True
 
-        # Memory-based action suggestions feed into UCB priors
-        if self.memory.action_models:
-            priors = self.memory.suggest_actions(
-                current_frame=self._prev_frame if self._prev_frame is not None else np.zeros((1, 1)),
+        # Update memory priors for next choose_action cycle
+        if self.memory.action_models and self._prev_frame is not None:
+            self._memory_priors = self.memory.suggest_actions(
+                current_frame=self._prev_frame,
                 available_actions=list(self._unique_actions_used),
                 level=self.current_level,
             )
-            # These priors are available but we don't force them —
-            # the UCB1 in v6's GraphExplorer handles selection.
-            # Future: wire these into GraphExplorer._ucb1_select as soft priors.
 
     def _contract_checkpoint(self):
-        """Check progress against sprint contract."""
+        """Check progress against sprint contract and act on fallback strategy."""
         if self.contract is None:
             return
 
-        levels = self.current_level
         states = self.explorer.num_states
 
-        # If contract says abort and we have no levels, consider giving up
-        if (self.total_actions_this_level >= self.contract.abort_at and
-            levels == 0 and states < 50):
-            # Signal to the evaluator but don't force abort
-            pass
+        # Fallback: if contract says try different mode and we're stuck
+        if (self.contract.fallback_mode
+            and self.mode != self.contract.fallback_mode
+            and not self._evaluator_switched
+            and states < 30):
+            self._switch_mode(
+                self.contract.fallback_mode,
+                2 if self.contract.fallback_mode == "grid_fine" else self.grid_step)
+            self._evaluator_switched = True
 
     def get_harness_stats(self) -> dict:
         """Get stats from all harness components."""
@@ -416,6 +516,29 @@ def solve_game(arc, game_id, max_actions=200000, verbose=True):
     return result
 
 
+# v7 budgets: more aggressive than v6
+# Give zero-score games more budget — memory might crack them
+# Give high-potential games even more
+V7_GAME_BUDGETS = {
+    # Top performers — push harder
+    "lp85": 400000,   # 5/8, might hit 6-7
+    "dc22": 350000,   # 3/6 with UCB1, memory should help
+    "lf52": 350000,   # 1/10, 10 levels available — huge upside
+    "vc33": 300000,   # 3/7
+    "ft09": 350000,   # 2/6, deep explorer
+    # Zero-score games — memory + evaluator might flip them
+    "re86": 350000,   # 0/8, 52K states — needs memory
+    "wa30": 300000,   # 0/9, grid-fine mode
+    "sb26": 300000,   # 0/8, shallow grid
+    "sk48": 300000,   # 0/8, deep but stuck
+    "g50t": 300000,   # 0/7, barely exploring
+    # Near-solved — squeeze more levels
+    "ar25": 250000,   # 2/8
+    "m0r0": 250000,   # 2/6
+    # Default: 200K (from GAME_BUDGETS)
+}
+
+
 def run_all(api_key, max_actions=200000, verbose=True):
     """Run all games with harness agent."""
     from arc_agi import Arcade
@@ -429,7 +552,7 @@ def run_all(api_key, max_actions=200000, verbose=True):
     for e in envs:
         try:
             gid_short = e.game_id.split("-")[0]
-            budget = GAME_BUDGETS.get(gid_short, max_actions)
+            budget = V7_GAME_BUDGETS.get(gid_short, GAME_BUDGETS.get(gid_short, max_actions))
             r = solve_game(arc, e.game_id, budget, verbose=False)
             lc = r.get("levels_completed", 0)
             tl = r.get("total_levels", 0)
