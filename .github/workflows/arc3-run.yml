@@ -8,9 +8,9 @@ on:
         required: false
         default: '200000'
       explorer:
-        description: 'Explorer version (v6, v5_ucb, v4, or unified)'
+        description: 'Explorer version (v7, v6, v5_ucb, v4, or unified)'
         required: false
-        default: 'v6'
+        default: 'v7'
 
 jobs:
   arc3-run:
@@ -34,6 +34,7 @@ jobs:
         env:
           ARC_API_KEY: "58b421be-5980-4ee8-8e57-0f18dc9369f3"
           PYTHONIOENCODING: utf-8
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           EXPLORER="${{ github.event.inputs.explorer }}"
           if [ "$EXPLORER" = "unified" ]; then
@@ -45,9 +46,12 @@ jobs:
           elif [ "$EXPLORER" = "v5_ucb" ]; then
             echo "Running v5_ucb explorer..."
             python olympus/arc3/explorer_v5_ucb.py 2>&1 | tee arc3_results.txt
-          else
+          elif [ "$EXPLORER" = "v6" ]; then
             echo "Running v6 adaptive (UCB1 + efficacy switch + variable budget)..."
             python olympus/arc3/explorer_v6_adaptive.py 2>&1 | tee arc3_results.txt
+          else
+            echo "Running v7 harness (v6 + memory + evaluator + sprint contract + handoff)..."
+            python -m olympus.arc3.explorer_v7_harness 2>&1 | tee arc3_results.txt
           fi
 
       - name: Upload results
@@ -56,3 +60,10 @@ jobs:
         with:
           name: arc3-results
           path: arc3_results.txt
+
+      - name: Upload diagnostics
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arc3-diagnostics
+          path: diagnostics/
