@@ -499,6 +499,16 @@ def solve_game(arc, game_id, max_actions=200000, verbose=True):
         "game_type": game_handoff.game_type,
         "memory_records": agent.memory.total_records,
         "hypotheses": agent.memory.compile_hypotheses(),
+        # Full diagnostics for meta-harness optimization
+        "diagnostics": {
+            "action_models": agent.memory.get_action_summary(),
+            "evaluator_trend": agent.evaluator.get_trend(10),
+            "handoff": game_handoff.to_dict(),
+            "contract": agent.contract.to_dict() if agent.contract else None,
+            "dead_actions_pruned": list(agent.contract.dead_actions) if agent.contract else [],
+            "evaluator_switched_mode": agent._evaluator_switched,
+            "memory_stats": agent.memory.get_stats(),
+        },
     }
 
     if verbose:
@@ -512,6 +522,18 @@ def solve_game(arc, game_id, max_actions=200000, verbose=True):
         eval_result = agent.evaluator.get_latest()
         if eval_result:
             print(f"    Last eval: {eval_result.grades.overall:.2f} — {eval_result.critique[:100]}")
+
+    # Write per-game diagnostic JSON (for meta-harness optimization)
+    diag_dir = os.path.join(os.path.dirname(__file__), "..", "..", "diagnostics")
+    os.makedirs(diag_dir, exist_ok=True)
+    import json
+    gid_short = game_id.split("-")[0]
+    diag_path = os.path.join(diag_dir, f"{gid_short}.json")
+    try:
+        with open(diag_path, "w") as f:
+            json.dump(result, f, indent=2, default=str)
+    except Exception:
+        pass  # don't crash on diagnostic write failure
 
     return result
 
@@ -579,6 +601,43 @@ def run_all(api_key, max_actions=200000, verbose=True):
         gt = r.get("game_type", "unknown")
         type_counts[gt] += 1
     print(f"\nGame types: {dict(type_counts)}")
+
+    # Write run summary JSON (meta-harness: uncompressed feedback for next iteration)
+    import json
+    summary = {
+        "version": "v7.1",
+        "total_levels_completed": total_c,
+        "total_levels": total_l,
+        "score_pct": round(total_c / max(total_l, 1) * 100, 1),
+        "elapsed_seconds": round(elapsed),
+        "game_types": dict(type_counts),
+        "per_game": [],
+    }
+    for r in all_results:
+        gid = r.get("game_id", "?")
+        gid_short = gid.split("-")[0]
+        summary["per_game"].append({
+            "game_id": gid,
+            "game_short": gid_short,
+            "levels": f"{r.get('levels_completed', 0)}/{r.get('total_levels', 0)}",
+            "actions": r.get("actions_used", 0),
+            "states": r.get("states_explored", 0),
+            "depth": r.get("max_depth", 0),
+            "mode": r.get("mode", "?"),
+            "game_type": r.get("game_type", "unknown"),
+            "memory_records": r.get("memory_records", 0),
+            "hypotheses_count": len(r.get("hypotheses", [])),
+            "hypotheses": r.get("hypotheses", [])[:5],
+            "evaluator_switched": r.get("diagnostics", {}).get("evaluator_switched_mode", False),
+        })
+
+    diag_dir = os.path.join(os.path.dirname(__file__), "..", "..", "diagnostics")
+    os.makedirs(diag_dir, exist_ok=True)
+    try:
+        with open(os.path.join(diag_dir, "_run_summary.json"), "w") as f:
+            json.dump(summary, f, indent=2, default=str)
+    except Exception:
+        pass
 
     return all_results
 

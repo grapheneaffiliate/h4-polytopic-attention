@@ -60,3 +60,10 @@ jobs:
         with:
           name: arc3-results
           path: arc3_results.txt
+
+      - name: Upload diagnostics
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arc3-diagnostics
+          path: diagnostics/
