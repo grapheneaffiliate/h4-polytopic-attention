@@ -630,7 +630,10 @@ def run_all(api_key, max_actions=200000, verbose=True):
                     print(f"    SKILL: {s}", flush=True)
             all_results.append(r)
         except Exception as ex:
+            import traceback
             print(f"{e.game_id}: ERROR {ex}", flush=True)
+            traceback.print_exc()
+            print(flush=True)
 
     elapsed = time.time() - t0
     print(f"\nTOTAL: {total_c}/{total_l} levels ({total_c/max(total_l,1)*100:.1f}%) "
