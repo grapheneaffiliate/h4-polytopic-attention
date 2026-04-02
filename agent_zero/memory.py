@@ -287,15 +287,31 @@ class ActionEffectMemory:
         self.cache_misses = 0
 
     def record(self, action: int, prev_frame: np.ndarray, new_frame: np.ndarray,
-               level: int = 0, episode: int = 0):
+               level: int = 0, episode: int = 0, changed: bool = False):
         """Record an action's effect.
 
-        Tier 1 (action models) records every observation — it's just counter updates.
-        Tier 2 (similarity) samples 1 in N to keep memory bounded on Actions runners.
+        FAST PATH: most actions don't change the frame. Use `changed` flag from
+        the explorer's hash comparison (free) instead of running classify_frame_diff
+        (expensive numpy ops) on every action.
+
+        Tier 1 (action models) records every observation — just counter updates.
+        Tier 2 (similarity) samples 1 in N, only on frame changes.
         """
+        self.total_records += 1
+
+        # FAST PATH: no change — just update counters, skip expensive classification
+        if not changed:
+            if action not in self.action_models:
+                self.action_models[action] = ActionModel(action=action)
+            self.action_models[action].record(EffectType.NO_CHANGE, 0.0)
+            if action not in self.level_action_models[level]:
+                self.level_action_models[level][action] = ActionModel(action=action)
+            self.level_action_models[level][action].record(EffectType.NO_CHANGE, 0.0)
+            return
+
+        # SLOW PATH: frame changed — run full classification (only ~10-20% of actions)
         effect_type, magnitude = classify_frame_diff(prev_frame, new_frame)
 
-        # Tier 1: always update action models (cheap — just counters)
         if action not in self.action_models:
             self.action_models[action] = ActionModel(action=action)
         self.action_models[action].record(effect_type, magnitude)
@@ -304,11 +320,9 @@ class ActionEffectMemory:
             self.level_action_models[level][action] = ActionModel(action=action)
         self.level_action_models[level][action].record(effect_type, magnitude)
 
-        # Tier 2: sample for similarity lookup (expensive — stores feature vector)
-        self.total_records += 1
+        # Tier 2: sample for similarity lookup
         if (len(self.observations) < self.max_observations
-            and self.total_records % self._sample_rate == 0
-            and effect_type != EffectType.NO_CHANGE):  # only store interesting effects
+            and self.total_records % self._sample_rate == 0):
             features = extract_frame_features(prev_frame)
             obs = ActionEffect(
                 action=action,

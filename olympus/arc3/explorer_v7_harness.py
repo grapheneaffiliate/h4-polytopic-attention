@@ -241,7 +241,11 @@ class HarnessAgent(UnifiedAgentV6):
         if action_idx is not None and game_action > 0:
             self._game_action_to_indices[game_action].add(action_idx)
 
-        # Record in memory
+        # Track new states (compute hash once, reuse for memory)
+        new_hash = hash_frame(new_frame, self.status_bar_mask)
+        changed = prev_hash != new_hash
+
+        # Record in memory (pass changed flag — skips expensive numpy on no-change)
         if self._prev_frame is not None and action_idx is not None:
             self.memory.record(
                 action=game_action,
@@ -249,18 +253,17 @@ class HarnessAgent(UnifiedAgentV6):
                 new_frame=new_frame,
                 level=self.current_level,
                 episode=self.retry_count,
+                changed=changed,
             )
 
-        # Track new states for evaluation
-        new_hash = hash_frame(new_frame, self.status_bar_mask)
-        if prev_hash != new_hash:
+        if changed:
             self._episode_new_states += 1
             self._window_new_states += 1
         self._episode_actions += 1
 
-        # Record start frame for goal inference
+        # Record start frame for goal inference (only once per level)
         if self.current_level not in self._level_start_frames:
-            self._level_start_frames[self.current_level] = new_frame.copy()
+            self._level_start_frames[self.current_level] = new_frame.copy()  # copy needed — frame reused
 
     def on_game_over(self):
         """Override to add handoff on episode reset."""

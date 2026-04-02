@@ -275,12 +275,12 @@ class TestSprintPlanner:
         planner = SprintPlanner()
         mem = ActionEffectMemory()
         f1 = np.zeros((10, 10), dtype=int)
-        # Build some memory
+        # Build some memory (pass changed flag for fast path)
         for _ in range(10):
             f2 = np.random.randint(0, 4, (10, 10))
-            mem.record(action=3, prev_frame=f1, new_frame=f2, level=0)
+            mem.record(action=3, prev_frame=f1, new_frame=f2, level=0, changed=True)
         for _ in range(10):
-            mem.record(action=5, prev_frame=f1, new_frame=f1, level=0)
+            mem.record(action=5, prev_frame=f1, new_frame=f1, level=0, changed=False)
 
         contract = planner.plan(level=1, memory=mem)
         assert 5 in contract.dead_actions
