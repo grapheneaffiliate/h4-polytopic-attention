@@ -1,0 +1,11 @@
+{
+  "game_id": "cn04",
+  "total_levels": 5,
+  "levels": [
+    {
+      "level": 0,
+      "solved": false
+    }
+  ],
+  "solved_levels": 0
+}
