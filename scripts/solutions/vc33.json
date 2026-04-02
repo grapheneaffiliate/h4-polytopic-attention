@@ -1,0 +1,95 @@
+{
+  "game_id": "vc33",
+  "total_levels": 7,
+  "levels": [
+    {
+      "level": 0,
+      "solved": true,
+      "num_actions": 3,
+      "actions": [
+        {
+          "id": 6,
+          "data": {
+            "x": 60,
+            "y": 32
+          }
+        },
+        {
+          "id": 6,
+          "data": {
+            "x": 60,
+            "y": 32
+          }
+        },
+        {
+          "id": 6,
+          "data": {
+            "x": 60,
+            "y": 32
+          }
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "solved": true,
+      "num_actions": 7,
+      "actions": [
+        {
+          "id": 6,
+          "data": {
+            "x": 0,
+            "y": 24
+          }
+        },
+        {
+          "id": 6,
+          "data": {
+            "x": 0,
+            "y": 24
+          }
+        },
+        {
+          "id": 6,
+          "data": {
+            "x": 0,
+            "y": 44
+          }
+        },
+        {
+          "id": 6,
+          "data": {
+            "x": 0,
+            "y": 44
+          }
+        },
+        {
+          "id": 6,
+          "data": {
+            "x": 0,
+            "y": 44
+          }
+        },
+        {
+          "id": 6,
+          "data": {
+            "x": 0,
+            "y": 44
+          }
+        },
+        {
+          "id": 6,
+          "data": {
+            "x": 0,
+            "y": 44
+          }
+        }
+      ]
+    },
+    {
+      "level": 2,
+      "solved": false
+    }
+  ],
+  "solved_levels": 2
+}
