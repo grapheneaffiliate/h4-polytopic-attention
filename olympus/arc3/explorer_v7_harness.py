@@ -56,7 +56,7 @@ class HarnessAgent(UnifiedAgentV6):
         super().__init__(grid_step=grid_step)
 
         # Harness components
-        self.memory = ActionEffectMemory(max_observations=20000)
+        self.memory = ActionEffectMemory(max_observations=2000)
         self.evaluator = Evaluator(eval_interval=500)  # every 500 actions
         self.planner = SprintPlanner()
         self.handoff_mgr = HandoffManager(game_id=game_id, total_levels=total_levels)
@@ -113,8 +113,8 @@ class HarnessAgent(UnifiedAgentV6):
 
         result = super().choose_action(frame, available_actions, levels_completed)
 
-        # Store frame for memory recording
-        self._prev_frame = frame.copy()
+        # Store frame reference for memory recording (no copy — frame is from env)
+        self._prev_frame = frame
 
         # Track unique actions
         if isinstance(result, tuple) and len(result) >= 1:

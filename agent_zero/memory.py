@@ -264,17 +264,19 @@ class ActionEffectMemory:
         # Returns {action: weight} for UCB1
     """
 
-    def __init__(self, max_observations: int = 50000, similarity_threshold: float = 0.85):
+    def __init__(self, max_observations: int = 2000, similarity_threshold: float = 0.85):
         self.max_observations = max_observations
         self.similarity_threshold = similarity_threshold
 
-        # Tier 1: per-action compiled models
+        # Tier 1: per-action compiled models (cheap — just counters)
         self.action_models: dict[int, ActionModel] = {}
 
-        # Tier 2: (features, action, effect, magnitude) for similarity lookup
+        # Tier 2: sampled observations for similarity lookup (expensive — has features)
+        # Only store 1 in N observations to keep memory bounded
         self.observations: list[ActionEffect] = []
         self._feature_matrix: Optional[np.ndarray] = None  # lazy-built
         self._feature_dirty = True
+        self._sample_rate = 50  # store 1 in 50 observations for similarity
 
         # Per-level action models (don't pollute across very different games)
         self.level_action_models: dict[int, dict[int, ActionModel]] = defaultdict(dict)
@@ -286,22 +288,28 @@ class ActionEffectMemory:
 
     def record(self, action: int, prev_frame: np.ndarray, new_frame: np.ndarray,
                level: int = 0, episode: int = 0):
-        """Record an action's effect."""
-        effect_type, magnitude = classify_frame_diff(prev_frame, new_frame)
-        features = extract_frame_features(prev_frame)
+        """Record an action's effect.
 
-        # Update global action model
+        Tier 1 (action models) records every observation — it's just counter updates.
+        Tier 2 (similarity) samples 1 in N to keep memory bounded on Actions runners.
+        """
+        effect_type, magnitude = classify_frame_diff(prev_frame, new_frame)
+
+        # Tier 1: always update action models (cheap — just counters)
         if action not in self.action_models:
             self.action_models[action] = ActionModel(action=action)
         self.action_models[action].record(effect_type, magnitude)
 
-        # Update level-specific action model
         if action not in self.level_action_models[level]:
             self.level_action_models[level][action] = ActionModel(action=action)
         self.level_action_models[level][action].record(effect_type, magnitude)
 
-        # Store observation for similarity lookup (with budget)
-        if len(self.observations) < self.max_observations:
+        # Tier 2: sample for similarity lookup (expensive — stores feature vector)
+        self.total_records += 1
+        if (len(self.observations) < self.max_observations
+            and self.total_records % self._sample_rate == 0
+            and effect_type != EffectType.NO_CHANGE):  # only store interesting effects
+            features = extract_frame_features(prev_frame)
             obs = ActionEffect(
                 action=action,
                 effect_type=effect_type,
@@ -312,8 +320,6 @@ class ActionEffectMemory:
             )
             self.observations.append(obs)
             self._feature_dirty = True
-
-        self.total_records += 1
 
     def get_action_model(self, action: int, level: Optional[int] = None) -> Optional[ActionModel]:
         """Get compiled action model. Level-specific if available."""
