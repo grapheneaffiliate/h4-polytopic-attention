@@ -572,22 +572,22 @@ def solve_game(arc, game_id, max_actions=200000, verbose=True):
 # Give zero-score games more budget — memory might crack them
 # Give high-potential games even more
 V7_GAME_BUDGETS = {
-    # Top performers — push harder
-    "lp85": 400000,   # 5/8, might hit 6-7
-    "dc22": 350000,   # 3/6 with UCB1, memory should help
-    "lf52": 350000,   # 1/10, 10 levels available — huge upside
-    "vc33": 300000,   # 3/7
-    "ft09": 350000,   # 2/6, deep explorer
-    # Zero-score games — memory + evaluator might flip them
-    "re86": 350000,   # 0/8, 52K states — needs memory
-    "wa30": 300000,   # 0/9, grid-fine mode
-    "sb26": 300000,   # 0/8, shallow grid
-    "sk48": 300000,   # 0/8, deep but stuck
-    "g50t": 300000,   # 0/7, barely exploring
-    # Near-solved — squeeze more levels
-    "ar25": 250000,   # 2/8
-    "m0r0": 250000,   # 2/6
-    # Default: 200K (from GAME_BUDGETS)
+    # CONSERVATIVE budgets — run #7 succeeded at these levels, #10 OOM'd at higher
+    # GitHub Actions runner has 7GB RAM. Keep total budget reasonable.
+    # Top performers
+    "lp85": 300000,   # 5/8, was 400K in v6 but runner OOM'd
+    "dc22": 250000,   # 3/6 with UCB1
+    "lf52": 250000,   # 1/10, 10 levels
+    "vc33": 250000,   # 3/7
+    "ft09": 250000,   # 2/6, deep explorer
+    # Zero-score games — skills should help even at 200K
+    # Skills start them in correct mode immediately, saving 20K+ wasted actions
+    "re86": 250000,   # 0/8 — skill: switch to grid at 25K
+    "wa30": 250000,   # 0/9 — skill: start grid_fine
+    "sb26": 200000,   # 0/8 — skill: start grid_fine
+    "sk48": 250000,   # 0/8 — skill: start grid_fine
+    "g50t": 200000,   # 0/7 — skill: start grid_fine
+    # Default: 200K
 }
 
 
