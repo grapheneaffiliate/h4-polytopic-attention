@@ -1,0 +1,30 @@
+{
+  "game_id": "cd82",
+  "total_levels": 6,
+  "solved_levels": 1,
+  "levels": [
+    {
+      "level": 0,
+      "solved": true,
+      "num_actions": 5,
+      "actions": [
+        {
+          "id": 3
+        },
+        {
+          "id": 2
+        },
+        {
+          "id": 2
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 5
+        }
+      ]
+    }
+  ],
+  "total_time": 60.7
+}
