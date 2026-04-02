@@ -38,6 +38,7 @@ from agent_zero.memory import ActionEffectMemory, extract_frame_features
 from agent_zero.evaluator import Evaluator
 from agent_zero.sprint_contract import SprintPlanner, SprintContract
 from agent_zero.handoff import HandoffManager
+from agent_zero.skills import SkillInjector
 
 
 class HarnessAgent(UnifiedAgentV6):
@@ -84,6 +85,20 @@ class HarnessAgent(UnifiedAgentV6):
         # Evaluator-driven mode switch tracking
         self._evaluator_switched = False
 
+        # Skills — persistent cross-run memory
+        self.skill_injector = SkillInjector(game_id=game_id)
+        self.skill_injector.load()
+
+        # Apply skill overrides at init
+        skill_start = self.skill_injector.get_start_mode()
+        if skill_start and skill_start != self.mode:
+            step = 2 if skill_start == "grid_fine" else 4
+            self._switch_mode(skill_start, step)
+
+        # Stash dead/boost from skills for use during exploration
+        self._skill_dead_actions = set(self.skill_injector.get_dead_actions())
+        self._skill_boost_actions = self.skill_injector.get_boost_actions()
+
     def choose_action(self, frame, available_actions, levels_completed):
         """Override to inject memory priors and evaluator-driven decisions."""
         # Level-up detection (before parent handles it)
@@ -104,6 +119,18 @@ class HarnessAgent(UnifiedAgentV6):
         # Track unique actions
         if isinstance(result, tuple) and len(result) >= 1:
             self._unique_actions_used.add(result[0])
+
+        # Skill-based mode switching (check every 1000 actions, cheap)
+        if self.total_actions_this_level % 1000 == 0 and not self._evaluator_switched:
+            efficacy = 0.0
+            if self._segment_actions_taken > 0:
+                efficacy = self._segment_actions_changed / self._segment_actions_taken
+            skill_switch = self.skill_injector.should_switch_mode(
+                self.total_actions_this_level, self.mode, efficacy)
+            if skill_switch:
+                step = 2 if skill_switch == "grid_fine" else 4
+                self._switch_mode(skill_switch, step)
+                self._evaluator_switched = True
 
         # Evaluator check — actively drives mode switching
         if self.evaluator.should_evaluate(self.total_actions_this_level):
@@ -388,6 +415,8 @@ class HarnessAgent(UnifiedAgentV6):
             "total_episodes": handoff.total_episodes,
         }
 
+        stats["skills"] = self.skill_injector.get_summary()
+
         return stats
 
 
@@ -499,6 +528,7 @@ def solve_game(arc, game_id, max_actions=200000, verbose=True):
         "game_type": game_handoff.game_type,
         "memory_records": agent.memory.total_records,
         "hypotheses": agent.memory.compile_hypotheses(),
+        "skills_applied": agent.skill_injector.applied,
         # Full diagnostics for meta-harness optimization
         "diagnostics": {
             "action_models": agent.memory.get_action_summary(),
@@ -574,7 +604,11 @@ def run_all(api_key, max_actions=200000, verbose=True):
     for e in envs:
         try:
             gid_short = e.game_id.split("-")[0]
-            budget = V7_GAME_BUDGETS.get(gid_short, GAME_BUDGETS.get(gid_short, max_actions))
+            # Budget priority: skill override > V7 budget > V6 budget > default
+            skill_check = SkillInjector(game_id=e.game_id)
+            skill_check.load()
+            skill_budget = skill_check.get_budget_override()
+            budget = skill_budget or V7_GAME_BUDGETS.get(gid_short, GAME_BUDGETS.get(gid_short, max_actions))
             r = solve_game(arc, e.game_id, budget, verbose=False)
             lc = r.get("levels_completed", 0)
             tl = r.get("total_levels", 0)
@@ -583,10 +617,14 @@ def run_all(api_key, max_actions=200000, verbose=True):
             status = "WIN" if r.get("state") == "WIN" else f"{lc}/{tl}"
             t = time.time() - t0
             hyps = r.get("hypotheses", [])
+            skills = r.get("skills_applied", [])
             print(f"{e.game_id}: {status} ({r['actions_used']} actions, "
                   f"{r['states_explored']} states, depth={r['max_depth']}, "
                   f"mode={r['mode']}, type={r.get('game_type', '?')}, "
-                  f"hyps={len(hyps)}) [{t:.0f}s]", flush=True)
+                  f"hyps={len(hyps)}, skills={len(skills)}) [{t:.0f}s]", flush=True)
+            if skills:
+                for s in skills[:3]:
+                    print(f"    SKILL: {s}", flush=True)
             all_results.append(r)
         except Exception as ex:
             print(f"{e.game_id}: ERROR {ex}", flush=True)
