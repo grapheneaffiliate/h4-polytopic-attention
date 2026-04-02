@@ -1,0 +1,11 @@
+{
+  "game_id": "r11l",
+  "total_levels": 6,
+  "levels": [
+    {
+      "level": 0,
+      "solved": false
+    }
+  ],
+  "solved_levels": 0
+}

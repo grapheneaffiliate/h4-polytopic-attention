@@ -1,0 +1,30 @@
+{
+  "game_id": "sp80",
+  "total_levels": 6,
+  "levels": [
+    {
+      "level": 0,
+      "solved": true,
+      "num_actions": 4,
+      "actions": [
+        {
+          "id": 4
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 5
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "solved": false
+    }
+  ],
+  "solved_levels": 1
+}

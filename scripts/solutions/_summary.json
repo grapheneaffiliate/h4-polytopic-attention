@@ -1,0 +1,16 @@
+{
+  "total_solved": 0,
+  "total_possible": 13,
+  "per_game": {
+    "tn36": {
+      "solved": 0,
+      "total": 7,
+      "time": 0.3
+    },
+    "sc25": {
+      "solved": 0,
+      "total": 6,
+      "time": 0.1
+    }
+  }
+}

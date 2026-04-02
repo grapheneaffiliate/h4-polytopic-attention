@@ -1,0 +1,11 @@
+{
+  "game_id": "sb26",
+  "total_levels": 8,
+  "levels": [
+    {
+      "level": 0,
+      "solved": false
+    }
+  ],
+  "solved_levels": 0
+}
