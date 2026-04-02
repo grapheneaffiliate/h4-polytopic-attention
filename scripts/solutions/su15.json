@@ -1,0 +1,11 @@
+{
+  "game_id": "su15",
+  "total_levels": 9,
+  "levels": [
+    {
+      "level": 0,
+      "solved": false
+    }
+  ],
+  "solved_levels": 0
+}

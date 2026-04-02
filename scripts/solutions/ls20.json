@@ -1,7 +1,53 @@
 {
   "game_id": "ls20",
   "total_levels": 7,
-  "solved_levels": 0,
-  "levels": [],
-  "total_time": 60.1
+  "levels": [
+    {
+      "level": 0,
+      "solved": true,
+      "num_actions": 13,
+      "actions": [
+        {
+          "id": 3
+        },
+        {
+          "id": 3
+        },
+        {
+          "id": 3
+        },
+        {
+          "id": 1
+        },
+        {
+          "id": 1
+        },
+        {
+          "id": 1
+        },
+        {
+          "id": 1
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 1
+        },
+        {
+          "id": 1
+        },
+        {
+          "id": 1
+        }
+      ]
+    }
+  ],
+  "solved_levels": 1
 }
