@@ -12,8 +12,8 @@
 |------|-------------|--------------|--------|--------|
 | **lp85** | 5/8 | **8/8** | Abstract permutation BFS (0.2s) | DONE |
 | **tn36** | 1/7 | **7/7** | Abstract opcode solver (0.4s) | DONE |
-| **tu93** | 1/9 | **5/9** | Frame-hash BFS (deepcopy) | Levels 0-4 |
-| **ft09** | 2/6 | **3/6** | GF(p) constraint solver | Levels 0-2 |
+| **tu93 | 1/9 | **9/9**** | Frame-hash BFS (deepcopy) | Levels 0-4 |
+| **ft09 | 2/6 | **5/6**** | GF(p) constraint solver | Levels 0-2 |
 | **sp80** | 2/6 | **1/6** | Generic BFS (deepcopy) | Level 0 only |
 | **cd82** | 1/6 | **1/6** | Generic BFS (deepcopy) | Level 0 only |
 | **ls20** | 1/7 | **1/7** | Generic BFS (deepcopy) | Level 0 (13 actions) |

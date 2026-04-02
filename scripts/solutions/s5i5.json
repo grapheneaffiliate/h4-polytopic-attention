@@ -1,0 +1,11 @@
+{
+  "game_id": "s5i5",
+  "total_levels": 8,
+  "levels": [
+    {
+      "level": 0,
+      "solved": false
+    }
+  ],
+  "solved_levels": 0
+}
