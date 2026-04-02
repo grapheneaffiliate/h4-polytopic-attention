@@ -8,9 +8,9 @@ on:
         required: false
         default: '200000'
       explorer:
-        description: 'Explorer version (v7, v6, v5_ucb, v4, or unified)'
+        description: 'Explorer version (v6t, v7, v6, v5_ucb, v4, or unified)'
         required: false
-        default: 'v7'
+        default: 'v6t'
 
 jobs:
   arc3-run:
@@ -49,9 +49,12 @@ jobs:
           elif [ "$EXPLORER" = "v6" ]; then
             echo "Running v6 adaptive (UCB1 + efficacy switch + variable budget)..."
             python olympus/arc3/explorer_v6_adaptive.py 2>&1 | tee arc3_results.txt
-          else
+          elif [ "$EXPLORER" = "v7" ]; then
             echo "Running v7 harness (v6 + memory + evaluator + sprint contract + handoff)..."
             python -m olympus.arc3.explorer_v7_harness 2>&1 | tee arc3_results.txt
+          else
+            echo "Running v6-tuned (smart grid targeting + start mode overrides)..."
+            python olympus/arc3/explorer_v6_tuned.py 2>&1 | tee arc3_results.txt
           fi
 
       - name: Upload results
