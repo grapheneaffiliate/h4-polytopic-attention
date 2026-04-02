@@ -144,6 +144,212 @@ def solve_ft09_level(game, verbose=True):
     if verbose:
         print(f"    Search space: {n_pal}^{n} = {total_combos} combinations")
 
+    # GF(p) LINEAR ALGEBRA SOLVER (works for any palette size)
+    # Build effect matrix over GF(n_pal)
+    # Each click adds 1 (mod n_pal) to certain cells
+    # We need: A*x ≡ target_change (mod n_pal)
+    effect_matrix = np.zeros((n, n), dtype=int)
+    for i, effect in enumerate(click_effects):
+        for j, val in enumerate(effect):
+            effect_matrix[j, i] = 1 if val != 0 else 0
+
+    # Determine required target changes
+    # For each cell, determine what color it needs to be
+    # based on constraints. If unconstrained, try all possibilities.
+    target_colors = [None] * n  # None = unconstrained
+    for cc_idx, (cell_idx, must_equal, target) in enumerate(constraint_rules):
+        if must_equal:
+            if target_colors[cell_idx] is None:
+                target_colors[cell_idx] = target
+            elif target_colors[cell_idx] != target:
+                if verbose:
+                    print(f"    Conflicting constraints on cell {cell_idx}!")
+        else:
+            # Must NOT equal target — constrained but multiple valid values
+            pass
+
+    # For cells with EQUAL constraints, compute required changes
+    constrained_cells = [(i, c) for i, c in enumerate(target_colors) if c is not None]
+    if constrained_cells and verbose:
+        print(f"    {len(constrained_cells)} cells with EQUAL constraints")
+
+    # Build target change vector
+    target_change = np.zeros(n, dtype=int)
+    constrained_mask = np.zeros(n, dtype=bool)
+    for cell_idx, req_color in constrained_cells:
+        cur_color = initial_colors[cell_idx]
+        if cur_color in palette_map and req_color in palette_map:
+            cur_idx = palette_map[cur_color]
+            req_idx = palette_map[req_color]
+            target_change[cell_idx] = (req_idx - cur_idx) % n_pal
+            constrained_mask[cell_idx] = True
+
+    # Solve A*x ≡ target_change (mod n_pal) for constrained rows only
+    if any(constrained_mask):
+        A_constrained = effect_matrix[constrained_mask]
+        b_constrained = target_change[constrained_mask]
+
+        def gf_gauss_solve(A, b, p):
+            n_rows = A.shape[0]
+            m = A.shape[1]
+            M = np.zeros((n_rows, m+1), dtype=int)
+            M[:, :m] = A % p
+            M[:, m] = b % p
+            pivot_cols = []
+            row = 0
+            for col in range(m):
+                found = False
+                for r in range(row, n_rows):
+                    if M[r, col] % p != 0:
+                        M[[row, r]] = M[[r, row]]
+                        found = True
+                        break
+                if not found:
+                    continue
+                pivot_cols.append(col)
+                inv = pow(int(M[row, col]), p-2, p)
+                M[row] = (M[row] * inv) % p
+                for r in range(n_rows):
+                    if r != row and M[r, col] % p != 0:
+                        factor = M[r, col] % p
+                        M[r] = (M[r] - factor * M[row]) % p
+                row += 1
+            for r in range(row, n_rows):
+                if M[r, m] % p != 0:
+                    return None
+            x = np.zeros(m, dtype=int)
+            for i, col in enumerate(pivot_cols):
+                x[col] = M[i, m] % p
+            return x
+
+        x = gf_gauss_solve(A_constrained, b_constrained, n_pal)
+        if x is not None:
+            # Verify abstractly
+            result_colors = list(initial_colors)
+            for i in range(n):
+                for _ in range(int(x[i])):
+                    for j in range(n):
+                        if click_effects[i][j]:
+                            if result_colors[j] in palette_map:
+                                cur = palette_map[result_colors[j]]
+                                result_colors[j] = palette[(cur + 1) % n_pal]
+
+            if check_win_abstract(result_colors):
+                # Build action list
+                gf_actions = []
+                for i in range(n):
+                    for _ in range(int(x[i])):
+                        gf_actions.append(click_actions[i])
+
+                # Verify with engine
+                g_verify = copy.deepcopy(game)
+                for a in gf_actions:
+                    step_game(g_verify, a)
+
+                if g_verify._score > initial_score or g_verify._state == GameState.WIN:
+                    elapsed = time.time() - t0
+                    total_clicks = sum(int(xi) for xi in x)
+                    if verbose:
+                        print(f"    GF({n_pal}) SOLVED: {total_clicks} clicks, x={x.tolist()}, {elapsed:.3f}s")
+                    return gf_actions, g_verify
+                elif verbose:
+                    print(f"    GF({n_pal}) abstract win but engine rejected. x={x.tolist()}")
+            else:
+                # Solution satisfies EQUAL but not NOT_EQUAL constraints
+                # Search the null space for a variant that satisfies both
+                if verbose:
+                    print(f"    GF({n_pal}) particular solution violates NOT_EQUAL. Searching null space...")
+
+                # Find null space of A_constrained
+                def gf_null_space(A, p):
+                    n_rows, m = A.shape
+                    M = A.copy() % p
+                    pivot_cols = []
+                    row = 0
+                    for col in range(m):
+                        found = False
+                        for r in range(row, n_rows):
+                            if M[r, col] % p != 0:
+                                M[[row, r]] = M[[r, row]]
+                                found = True
+                                break
+                        if not found:
+                            continue
+                        pivot_cols.append(col)
+                        inv = pow(int(M[row, col]), p-2, p)
+                        M[row] = (M[row] * inv) % p
+                        for r in range(n_rows):
+                            if r != row and M[r, col] % p != 0:
+                                M[r] = (M[r] - M[r, col] * M[row]) % p
+                        row += 1
+
+                    free_cols = [c for c in range(m) if c not in pivot_cols]
+                    null_vecs = []
+                    for fc in free_cols:
+                        v = np.zeros(m, dtype=int)
+                        v[fc] = 1
+                        for i, pc in enumerate(pivot_cols):
+                            v[pc] = (-M[i, fc]) % p
+                        null_vecs.append(v)
+                    return null_vecs
+
+                null_vecs = gf_null_space(A_constrained, n_pal)
+                k = len(null_vecs)
+                if verbose:
+                    print(f"    Null space dimension: {k} (search space: {n_pal}^{k} = {n_pal**k})")
+
+                if k <= 18:  # feasible search
+                    from itertools import product as iproduct
+                    best_solution = None
+                    best_clicks = sum(int(xi) for xi in x) + 1
+
+                    for coeffs in iproduct(range(n_pal), repeat=k):
+                        candidate = x.copy()
+                        for j, c in enumerate(coeffs):
+                            candidate = (candidate + c * null_vecs[j]) % n_pal
+
+                        total_clicks = sum(int(ci) for ci in candidate)
+                        if total_clicks >= best_clicks:
+                            continue
+
+                        # Check abstractly
+                        result_colors = list(initial_colors)
+                        for i in range(n):
+                            for _ in range(int(candidate[i])):
+                                for j2 in range(n):
+                                    if click_effects[i][j2]:
+                                        if result_colors[j2] in palette_map:
+                                            cur = palette_map[result_colors[j2]]
+                                            result_colors[j2] = palette[(cur + 1) % n_pal]
+
+                        if check_win_abstract(result_colors):
+                            best_solution = candidate
+                            best_clicks = total_clicks
+
+                    if best_solution is not None:
+                        gf_actions = []
+                        for i in range(n):
+                            for _ in range(int(best_solution[i])):
+                                gf_actions.append(click_actions[i])
+                        g_verify = copy.deepcopy(game)
+                        for a in gf_actions:
+                            step_game(g_verify, a)
+                        if g_verify._score > initial_score or g_verify._state == GameState.WIN:
+                            elapsed = time.time() - t0
+                            if verbose:
+                                print(f"    GF({n_pal})+null SOLVED: {best_clicks} clicks, {elapsed:.3f}s")
+                            return gf_actions, g_verify
+                        elif verbose:
+                            print(f"    GF({n_pal})+null abstract win but engine rejected")
+                    elif verbose:
+                        print(f"    GF({n_pal})+null search found no valid solution")
+                elif verbose:
+                    print(f"    Null space too large ({n_pal}^{k}), falling back")
+        elif verbose:
+            print(f"    GF({n_pal}) system has no solution for EQUAL constraints alone")
+
+    # GF solver handles most cases. Fall back to brute force for small puzzles.
+
     # For 2-color: brute force bitmask (up to 2^25 = 33M)
     # For 3-color: BFS on abstract state (much faster)
     if n_pal == 2 and n <= 25:
