@@ -1,150 +1,160 @@
 # Session Handoff — ARC-AGI-3 Local Solving
 
-**Date:** 2026-04-02 (Session 6 — LOCAL SOLVING BREAKTHROUGH)
+**Date:** 2026-04-02 (Session 6+7 — LOCAL SOLVING + ABSTRACT SOLVERS)
 **Branch:** `work/harness-pattern`
-**Status:** AGI-3 local solving: LP85 8/8, TU93 5/9, FT09 3/6 = 16 levels locally solved
-**Goal:** 100% on ARC-AGI-3 (182/182 levels across 25 games)
+**Goal:** 100% on ARC-AGI-3 (182/182 levels across 25 games) via pure CPU algorithms
 
 ---
 
-## Current Scores (Local Solving)
+## Current Local Solving Results
 
 | Game | Explorer v6 | Local Solver | Method | Status |
 |------|-------------|--------------|--------|--------|
-| lp85 | 5/8 | **8/8** | Abstract permutation BFS | DONE |
-| tu93 | 1/9 | **5/9** | Frame-hash BFS | Levels 0-4 solved |
-| ft09 | 2/6 | **3/6** | GF(p) constraint solver | Levels 0-2 solved |
-| cd82 | 1/6 | **1/6** | Generic BFS | Level 0 only |
-| dc22 | 3/6 | 0/6 | Not yet attempted locally | |
-| vc33 | 3/7 | 0/7 | Analysis done, solver needed | |
-| ar25 | 2/8 | 0/8 | Analysis done | |
-| m0r0 | 2/6 | 0/6 | Not analyzed | |
-| sp80 | 2/6 | 0/6 | Brute force attempted | |
-| r11l | 1/6 | 0/6 | Analysis done — click+drag legs | |
-| cn04 | 1/5 | 0/5 | Not analyzed | |
-| ka59 | 1/7 | 0/7 | Not analyzed | |
-| s5i5 | 1/8 | 0/8 | Not analyzed | |
-| su15 | 1/9 | 0/9 | Not analyzed | |
-| tr87 | 1/6 | 0/6 | Not analyzed | |
-| bp35 | 1/9 | 0/9 | Not analyzed | |
-| ls20 | 1/7 | 0/7 | Not analyzed | |
-| tn36 | 1/7 | 0/7 | Analysis done — programming puzzle | |
-| sc25 | 0/6 | 0/6 | Analysis done — spell-casting | |
-| sb26 | 0/8 | 0/8 | Analysis done — tile matching | |
-| lf52 | 1/10 | 0/10 | Not analyzed | |
-| re86 | 0/8 | 0/8 | Not analyzed | |
-| wa30 | 0/9 | 0/9 | Not analyzed | |
-| sk48 | 0/8 | 0/8 | Not analyzed | |
-| g50t | 0/7 | 0/7 | Not analyzed | |
+| **lp85** | 5/8 | **8/8** | Abstract permutation BFS (0.2s) | DONE |
+| **tn36** | 1/7 | **7/7** | Abstract opcode solver (0.4s) | DONE |
+| **tu93** | 1/9 | **5/9** | Frame-hash BFS (deepcopy) | Levels 0-4 |
+| **ft09** | 2/6 | **3/6** | GF(p) constraint solver | Levels 0-2 |
+| **sp80** | 2/6 | **1/6** | Generic BFS (deepcopy) | Level 0 only |
+| **cd82** | 1/6 | **1/6** | Generic BFS (deepcopy) | Level 0 only |
+| **ls20** | 1/7 | **1/7** | Generic BFS (deepcopy) | Level 0 (13 actions) |
+| dc22 | 3/6 | 0 | BFS too slow | |
+| vc33 | 3/7 | 0 | Click game, analysis done | |
+| ar25 | 2/8 | 0 | Analysis done | |
+| m0r0 | 2/6 | 0 | Not analyzed | |
+| r11l | 1/6 | 0 | Click game, deepcopy works | |
+| cn04 | 1/5 | 0 | Not analyzed | |
+| ka59 | 1/7 | 0 | Not analyzed | |
+| s5i5 | 1/8 | 0 | Not analyzed | |
+| su15 | 1/9 | 0 | Not analyzed | |
+| tr87 | 1/6 | 0 | Rotation puzzle, 9K states explored, too deep | |
+| bp35 | 1/9 | 0 | Not analyzed | |
+| sc25 | 0/6 | 0 | Deepcopy BROKEN (closures), spell-casting | |
+| sb26 | 0/8 | 0 | Tile matching, 1744 states too shallow | |
+| lf52 | 1/10 | 0 | Not analyzed | |
+| re86 | 0/8 | 0 | Not analyzed | |
+| wa30 | 0/9 | 0 | Not analyzed | |
+| sk48 | 0/8 | 0 | Not analyzed | |
+| g50t | 0/7 | 0 | Deepcopy BROKEN, grid puzzle, analysis done | |
 
-**Total local:** 17/182 (9.3%)
-**Combined (explorer + local):** ~38/182 (20.9%)
+**Local total: 26/182** (14.3%)
+**Combined unique (explorer + local): ~42/182** (23.1%)
 
 ---
 
-## Key Infrastructure Built
+## Critical Discovery: Deepcopy Closure Bug
 
-### Local Game Runner (`scripts/local_runner.py`)
-- Loads any game from `environment_files/` directory
-- `load_game_class()`, `create_game()`, `step_game()`, `get_valid_actions()`
-- `hash_state()`, `clone_game()`, `render_frame()`
+**Python `copy.deepcopy()` breaks games that store lambda closures referencing `self`.**
+
+Affected games: **TN36, G50T, SC25** (verified)
+Working games: TU93, CD82, TR87, LS20, SB26, R11L, AR25, SP80, DC22
+
+**Root cause:** Lambdas like `lambda: self.move(0, 4)` in opcode dictionaries capture the original `self` reference. After deepcopy, the lambda still calls the ORIGINAL object.
+
+**Solutions:**
+1. **Reset + replay** (correct, slower): recreate game from scratch for each BFS state
+2. **Abstract solvers** (fastest): bypass game engine entirely, BFS on pure tuples
+3. **Fix closures after deepcopy** (not implemented)
+
+---
+
+## Infrastructure Built
+
+### scripts/local_runner.py — Game Loading API
+- `load_game_class(game_id)` → loads Python source from environment_files/
+- `create_game(cls)` → creates and resets game instance
+- `step_game(game, action)` → performs one action
+- `get_valid_actions(game)` → returns all valid actions
 - Works with `.venv-arc3` (Python 3.12 + arcengine)
 
-### Generic BFS Solver (`scripts/solver_fast.py`)
-- Frame-hash state deduplication (correct for all games)
+### scripts/solver_fast.py — Generic BFS
+- Frame-hash deduplication (correct for all games)
 - `enumerate_actions()` — keyboard + sys_click + grid clicks
-- deepcopy for branching (~50-400 states/s)
-- Results: TU93 5/9, CD82 1/6
+- deepcopy for state branching (~30-60 states/s)
+- Results: TU93 5/9, CD82 1/6, LS20 1/7, SP80 1/6
 
-### LP85 Abstract Solver (`scripts/solve_lp85.py`)
+### scripts/solve_lp85.py — LP85 Abstract Solver
 - Extracts button permutations from source code
-- BFS on pure tuples at 23,584 states/s (100x faster)
-- 8/8 levels in 0.2 seconds
+- BFS on pure tuples at 23,584 states/s
+- 8/8 in 0.2 seconds
 
-### FT09 Constraint Solver (`scripts/solve_ft09.py`)
+### scripts/solve_tn36.py — TN36 Abstract Solver
+- Computes opcodes algebraically from start/target state
+- Uses reset+replay (not deepcopy) to verify
+- 7/7 in 0.4 seconds
+
+### scripts/solve_ft09.py — FT09 Constraint Solver
 - GF(p) Gaussian elimination for Lights-Out constraints
 - Null space search for NOT_EQUAL constraints
-- 3/6 levels instant (remaining 3 need 3-color GF(3) extension)
+- 3/6 levels (remaining need 3-color GF(3) extension)
 
-### Solution Executor (`scripts/execute_solutions.py`)
-- Replays saved action sequences via ARC-AGI API
-- Reads from `scripts/solutions/*.json`
-
-### GitHub Actions (`/.github/workflows/arc3-solve.yml`)
-- Combined workflow: pre-computed solutions + explorer fallback
+### scripts/execute_solutions.py — API Replay
+- Reads pre-computed solutions from solutions/*.json
+- Replays action sequences via ARC-AGI API
 
 ---
 
-## Game Analysis Completed (Ready for Solvers)
+## Game Analysis Completed
 
-### R11L (click, 6 levels, baselines: 7-45)
-- Click-drag puzzle: select legs, move to target positions
-- Win: all creature bodies collide with target templates
-- State: leg positions + selected leg + collision counter
-- Action space: 256 grid positions (64x64, step 4)
-- Lose: 5 collisions or 60 actions
+### Games with Abstract Solver Potential
 
-### TN36 (click, 7 levels, baselines: 23-61)
-- Programming puzzle: select programs, execute on blocks
-- Win: block matches goal in position+rotation+scale+color
-- Opcodes: move(±4,±8), rotate(±90,180), scale(±1), color
-- Lose: fuel barrier reaches block
-- State space: ~19K reachable states per level
+**LP85** (DONE 8/8): Button permutations → BFS on tuple state
+**TN36** (DONE 7/7): Opcode effects → algebraic program computation
+**FT09** (3/6): Lights-Out → GF(p) linear algebra (need GF(3) for remaining)
+**G50T** (0/7): Grid movement + obstacle. Player at (13,7) → goal at (43,49). Deepcopy broken. Need abstract state: (player_x, player_y, move_counter, obstacle_x). Undo mechanic (ACTION5).
+**SC25** (0/6): Spell-casting. Deepcopy broken. 3x3 spell grid (512 combos) + player movement. Spells: teleport, size change, fireball. Win: reach exit.
+**TR87** (0/6): Rule rotation puzzle. 7 rotation variants per sprite. Very deep solutions (37+ baseline). Need constraint solver approach.
 
-### VC33 (click, 7 levels, baselines: 6-92)
-- Click sprites to trigger pixel swaps (ZGd) or animations (zHk)
-- Win: all HQB goal sprites match fZK goal states
-- State: sprite positions + pixel data
-- Level 0 needs only 6 actions
+### Games Needing Source Analysis
 
-### SC25 (keyboard+click, 6 levels, baselines: 5-66)
-- Spell-casting: toggle 3x3 spell grid, cast spells, move player
-- Spells: teleport, size change, fireball
-- Win: reach exit sprite (pcohqadae)
-- State: player position + scale + spell slots (512) + actions taken
+**R11L**: Click-drag legs to match target positions. 60 action limit, 5 collision max.
+**SB26**: Tile matching with 64 energy. ACTION5=confirm, ACTION6=click, ACTION7=undo.
+**VC33**: Click sprites for pixel swaps/animations. Win: goal sprites match states.
+**DC22**: Keyboard+click, 4 kbd + 2 click actions. Deep solutions (64 baseline).
 
-### SB26 (keyboard+click, 8 levels, baselines: 15-31)
-- Tile matching puzzle with energy constraint (64 energy)
-- Actions: confirm (ACTION5, costs 1 energy), click (ACTION6), undo (ACTION7)
-- Win: all targets filled with matching items
-- Lose: energy reaches 0
+### Games Not Yet Analyzed
+
+AR25, BP35, CN04, KA59, LF52, M0R0, RE86, S5I5, SK48, SU15, WA30
 
 ---
 
-## Proven Approach
+## Framework Architecture (For API Submission)
 
-1. **Read game source** — all games are clean Python, NOT obfuscated
-2. **Extract abstract state** — identify minimal state representation
-3. **Build per-game solver** — BFS/DFS/algebraic on abstract state
-4. **Speed**: Abstract BFS runs at 20,000+ states/s vs 50-400 for deepcopy
+The goal is a pure CPU framework that plays all 25 games via API:
 
-### Bottlenecks
-- **deepcopy**: 15ms per state — too slow for BFS >100K states
-- **frame rendering**: 0.4ms per step — limits engine-based search
-- **Click games**: 256 positions per action — branching factor too high for BFS
-- **Solution**: Per-game source analysis + abstract solvers bypass ALL bottlenecks
+```
+┌─────────────────────────────────────┐
+│         Game Solver Framework        │
+├─────────────────────────────────────┤
+│  1. Pre-computed Solutions           │ ← LP85, TN36, FT09, TU93, SP80...
+│     (replay saved action sequences)  │
+├─────────────────────────────────────┤
+│  2. Per-Game Abstract Solvers        │ ← Source-analyzed, game-specific
+│     (algebraic, constraint, BFS)     │
+├─────────────────────────────────────┤
+│  3. Generic BFS Explorer             │ ← UCB1 + frame hash (v6)
+│     (fallback for unsolved games)    │
+└─────────────────────────────────────┘
+```
 
----
-
-## Immediate Next Steps
-
-1. **Build TN36 abstract solver** — programming puzzle, ~19K states, very tractable
-2. **Build VC33 abstract solver** — level 0 only needs 6 clicks
-3. **Extend FT09 to GF(3)** — solve remaining 3 levels with 3-color algebra
-4. **Analyze remaining 15 games** — read source, plan solvers
-5. **Run generic BFS on easy levels** — some games may have trivial level 0
+### Key Design Decisions
+- **Reset+replay** instead of deepcopy for correctness
+- **Abstract state** instead of frame hash for speed
+- **Per-game solvers** are 100-1000x faster than generic BFS
+- **Pre-computed solutions** are instant (0ms per level)
 
 ---
 
 ## Environment Setup
 
 ```bash
-# Activate venv
 cd C:\Users\atchi\h4-polytopic-attention
 .venv-arc3\Scripts\activate
 
-# Run LP85 solver
-cd scripts && python solve_lp85.py
+# Run individual solvers
+cd scripts
+python solve_lp85.py      # LP85 8/8 in 0.2s
+python solve_tn36.py      # TN36 7/7 in 0.4s
+python solve_ft09.py      # FT09 3/6
 
 # Run generic BFS on specific games
 python solver_fast.py tu93 cd82
@@ -155,8 +165,18 @@ python solver_fast.py
 
 ---
 
-## API Keys & Config
-
-- **ARC-AGI-3 API Key:** `58b421be-5980-4ee8-8e57-0f18dc9369f3`
+## API Keys
+- **ARC-AGI-3:** `58b421be-5980-4ee8-8e57-0f18dc9369f3`
 - **Python venv:** `.venv-arc3` (Python 3.12 + arcengine)
 - **Game files:** `environment_files/<game_id>/<hash>/<game_id>.py`
+
+---
+
+## Next Session Priorities
+
+1. **Extend FT09** to 6/6 with GF(3) Gaussian elimination
+2. **Build G50T abstract solver** — grid movement BFS without engine
+3. **Build SC25 solver** — spell pattern enumeration + pathfinding
+4. **Analyze remaining 11 games** — read source, plan solvers
+5. **Build unified framework** — single entry point for all games
+6. **API integration** — connect pre-computed + live solving to API
