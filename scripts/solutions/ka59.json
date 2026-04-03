@@ -1,11 +1,11 @@
 {
-  "game_id": "sp80",
-  "total_levels": 6,
+  "game_id": "ka59",
+  "total_levels": 7,
   "levels": [
     {
       "level": 0,
       "solved": true,
-      "num_actions": 4,
+      "num_actions": 11,
       "actions": [
         {
           "id": 4
@@ -17,48 +17,35 @@
           "id": 4
         },
         {
-          "id": 5
-        }
-      ]
-    },
-    {
-      "level": 1,
-      "solved": true,
-      "num_actions": 9,
-      "actions": [
-        {
-          "id": 2
+          "id": 3
         },
         {
           "id": 2
         },
         {
-          "id": 4
+          "id": 3
         },
         {
-          "id": 4
+          "id": 3
+        },
+        {
+          "id": 3
         },
         {
           "id": 6,
           "data": {
-            "x": 16,
-            "y": 16
+            "x": 42,
+            "y": 30
           }
         },
         {
-          "id": 4
+          "id": 1
         },
         {
           "id": 4
-        },
-        {
-          "id": 4
-        },
-        {
-          "id": 5
         }
       ]
     }
   ],
-  "solved_levels": 2
+  "solved_levels": 1
 }
