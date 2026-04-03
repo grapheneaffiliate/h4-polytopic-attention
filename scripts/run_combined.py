@@ -46,13 +46,15 @@ def load_solution(game_id):
     # Only return if it has solved levels with action sequences
     levels = {}
     for lvl in data.get("levels", []):
-        # Accept if explicitly solved=True, or if solved field is absent but actions exist
-        is_solved = lvl.get("solved", True)  # default True if field missing
+        is_solved = lvl.get("solved", True)
         if is_solved is False:
             continue
         actions = lvl.get("actions", [])
+        button_indices = lvl.get("button_indices", [])
         if actions:
-            levels[lvl["level"]] = actions
+            levels[lvl["level"]] = {"actions": actions}
+        elif button_indices:
+            levels[lvl["level"]] = {"button_indices": button_indices}
     return levels if levels else None
 
 
@@ -65,35 +67,80 @@ def replay_solution(arc, game_id, solution_levels):
     info = env.info
     total_levels = len(info.baseline_actions) if info.baseline_actions else 0
 
-    # Initialize
-    obs = env.step(GameAction.ACTION1)
+    def _step_action(env, act_data):
+        """Execute one action, handling both formats."""
+        action_id = act_data.get("id", 1)
+        data = act_data.get("data", {})
+        ga = ACTION_MAP.get(action_id, GameAction.ACTION1)
+        if data and action_id == 6:
+            return env.step(ga, data=data)
+        else:
+            return env.step(ga)
+
+    def _get_level_actions(level_data, env):
+        """Convert level data to action list, resolving button_indices at runtime."""
+        if "actions" in level_data:
+            return level_data["actions"]
+        elif "button_indices" in level_data:
+            # Resolve button indices to click coordinates via game engine
+            game_obj = env._game if hasattr(env, '_game') else None
+            if game_obj:
+                clicks = game_obj._get_valid_clickable_actions()
+                actions = []
+                for btn_idx in level_data["button_indices"]:
+                    if btn_idx < len(clicks):
+                        c = clicks[btn_idx]
+                        actions.append({"id": 6, "data": c.data})
+                    else:
+                        actions.append({"id": 6, "data": {"x": 0, "y": 0}})
+                return actions
+        return []
+
+    # Send first action from solution to initialize
+    first_level = min(solution_levels.keys()) if solution_levels else 0
+    first_level_data = solution_levels.get(first_level, {})
+    first_actions = _get_level_actions(first_level_data, env)
+
+    if not first_actions:
+        obs = env.step(GameAction.ACTION1)
+    else:
+        obs = _step_action(env, first_actions[0])
+
     if obs is None:
         return 0, total_levels
 
     total_levels = obs.win_levels or total_levels
     current_level = obs.levels_completed
-    total_actions = 1
 
-    # Replay each solved level
+    # Replay remaining actions for first level
+    if first_level == 0 and first_actions and current_level == 0:
+        for act_data in first_actions[1:]:
+            obs = _step_action(env, act_data)
+            if obs is None:
+                return current_level, total_levels
+            if obs.levels_completed > current_level:
+                current_level = obs.levels_completed
+                break
+            if obs.state.value != "NOT_FINISHED":
+                break
+
+    # Replay remaining levels
     for level_idx in sorted(solution_levels.keys()):
+        if level_idx <= first_level:
+            continue
         if current_level > level_idx:
-            continue  # Already past this level
+            continue
         if current_level != level_idx:
-            break  # Can't skip levels
+            break
+        if obs.state.value == "WIN":
+            current_level = obs.levels_completed
+            break
 
-        actions = solution_levels[level_idx]
+        level_data = solution_levels[level_idx]
+        actions = _get_level_actions(level_data, env)
+
         for act_data in actions:
-            action_id = act_data.get("id", act_data.get("action", 1))
-            data = act_data.get("data", {})
-            ga = ACTION_MAP.get(action_id, GameAction.ACTION1)
-
-            if data and action_id == 6:
-                obs = env.step(ga, data=data)
-            else:
-                obs = env.step(ga)
-
-            total_actions += 1
-
+            obs = _step_action(env, act_data)
             if obs is None:
                 return current_level, total_levels
             if obs.levels_completed > current_level:
