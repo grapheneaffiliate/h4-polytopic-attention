@@ -109,22 +109,48 @@ def replay_solution(arc, game_id, solution_levels):
     return current_level, total_levels
 
 
-def run_explorer(arc, game_id, max_actions=200000):
-    """Run explorer v6 on a game. Returns levels completed."""
-    try:
+def run_explorer(arc, game_id, max_actions=200000, timeout_sec=600):
+    """Run explorer v6 on a game with timeout. Returns levels completed."""
+    import signal
+    import threading
+
+    def _run():
         from olympus.arc3.explorer_v6_adaptive import solve_game, GAME_BUDGETS
         budget = GAME_BUDGETS.get(game_id.split("-")[0], max_actions)
-        result = solve_game(arc, game_id, budget, verbose=False)
-        return (
-            result.get("levels_completed", 0),
-            result.get("total_levels", 0),
-            result.get("actions_used", 0),
-            result.get("states_explored", 0),
-            result.get("mode", "?"),
-        )
-    except Exception as e:
-        print(f"    Explorer error: {e}", flush=True)
+        return solve_game(arc, game_id, budget, verbose=False)
+
+    result_box = [None]
+    error_box = [None]
+
+    def target():
+        try:
+            result_box[0] = _run()
+        except Exception as e:
+            error_box[0] = e
+
+    t = threading.Thread(target=target, daemon=True)
+    t.start()
+    t.join(timeout=timeout_sec)
+
+    if t.is_alive():
+        print(f"    Explorer TIMEOUT ({timeout_sec}s) on {game_id}", flush=True)
+        return 0, 0, 0, 0, "timeout"
+
+    if error_box[0]:
+        print(f"    Explorer error: {error_box[0]}", flush=True)
         return 0, 0, 0, 0, "error"
+
+    result = result_box[0]
+    if result is None:
+        return 0, 0, 0, 0, "none"
+
+    return (
+        result.get("levels_completed", 0),
+        result.get("total_levels", 0),
+        result.get("actions_used", 0),
+        result.get("states_explored", 0),
+        result.get("mode", "?"),
+    )
 
 
 def main():
