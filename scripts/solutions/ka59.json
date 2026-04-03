@@ -1,35 +1,45 @@
 {
-  "game_id": "cn04",
-  "total_levels": 5,
+  "game_id": "ka59",
+  "total_levels": 7,
   "levels": [
     {
       "level": 0,
       "solved": true,
-      "num_actions": 9,
+      "num_actions": 11,
       "actions": [
         {
-          "id": 2
-        },
-        {
-          "id": 2
-        },
-        {
-          "id": 2
-        },
-        {
-          "id": 2
-        },
-        {
-          "id": 2
-        },
-        {
-          "id": 2
+          "id": 4
         },
         {
           "id": 4
         },
         {
           "id": 4
+        },
+        {
+          "id": 3
+        },
+        {
+          "id": 2
+        },
+        {
+          "id": 3
+        },
+        {
+          "id": 3
+        },
+        {
+          "id": 3
+        },
+        {
+          "id": 6,
+          "data": {
+            "x": 42,
+            "y": 30
+          }
+        },
+        {
+          "id": 1
         },
         {
           "id": 4
