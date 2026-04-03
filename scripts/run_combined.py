@@ -46,8 +46,13 @@ def load_solution(game_id):
     # Only return if it has solved levels with action sequences
     levels = {}
     for lvl in data.get("levels", []):
-        if lvl.get("solved") and lvl.get("actions"):
-            levels[lvl["level"]] = lvl["actions"]
+        # Accept if explicitly solved=True, or if solved field is absent but actions exist
+        is_solved = lvl.get("solved", True)  # default True if field missing
+        if is_solved is False:
+            continue
+        actions = lvl.get("actions", [])
+        if actions:
+            levels[lvl["level"]] = actions
     return levels if levels else None
 
 
