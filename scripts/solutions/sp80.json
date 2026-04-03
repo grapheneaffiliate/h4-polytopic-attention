@@ -23,8 +23,42 @@
     },
     {
       "level": 1,
-      "solved": false
+      "solved": true,
+      "num_actions": 9,
+      "actions": [
+        {
+          "id": 2
+        },
+        {
+          "id": 2
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 6,
+          "data": {
+            "x": 16,
+            "y": 16
+          }
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 4
+        },
+        {
+          "id": 5
+        }
+      ]
     }
   ],
-  "solved_levels": 1
+  "solved_levels": 2
 }
