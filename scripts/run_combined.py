@@ -110,47 +110,53 @@ def replay_solution(arc, game_id, solution_levels):
 
 
 def run_explorer(arc, game_id, max_actions=200000, timeout_sec=600):
-    """Run explorer v6 on a game with timeout. Returns levels completed."""
-    import signal
-    import threading
+    """Run explorer v6 on a game with timeout via subprocess."""
+    import subprocess, tempfile
 
-    def _run():
-        from olympus.arc3.explorer_v6_adaptive import solve_game, GAME_BUDGETS
-        budget = GAME_BUDGETS.get(game_id.split("-")[0], max_actions)
-        return solve_game(arc, game_id, budget, verbose=False)
-
-    result_box = [None]
-    error_box = [None]
-
-    def target():
-        try:
-            result_box[0] = _run()
-        except Exception as e:
-            error_box[0] = e
-
-    t = threading.Thread(target=target, daemon=True)
-    t.start()
-    t.join(timeout=timeout_sec)
-
-    if t.is_alive():
+    # Run explorer in a subprocess so we can truly kill it on timeout
+    script = f"""
+import sys, os, json
+sys.path.insert(0, os.environ.get("PYTHONPATH", "."))
+from olympus.arc3.explorer_v6_adaptive import solve_game, GAME_BUDGETS
+from arc_agi import Arcade
+arc = Arcade(arc_api_key="{os.environ.get('ARC_API_KEY', '')}")
+budget = GAME_BUDGETS.get("{game_id.split('-')[0]}", {max_actions})
+try:
+    r = solve_game(arc, "{game_id}", budget, verbose=False)
+    print(json.dumps(r, default=str))
+except Exception as e:
+    print(json.dumps({{"error": str(e)}}))
+"""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True, text=True, timeout=timeout_sec,
+            env={**os.environ, "PYTHONPATH": PROJECT_ROOT},
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            import json as json_mod
+            data = json_mod.loads(result.stdout.strip().split("\n")[-1])
+            if "error" in data:
+                print(f"    Explorer error: {data['error']}", flush=True)
+                return 0, 0, 0, 0, "error"
+            return (
+                data.get("levels_completed", 0),
+                data.get("total_levels", 0),
+                data.get("actions_used", 0),
+                data.get("states_explored", 0),
+                data.get("mode", "?"),
+            )
+        else:
+            print(f"    Explorer failed: rc={result.returncode}", flush=True)
+            if result.stderr:
+                print(f"    stderr: {result.stderr[-200:]}", flush=True)
+            return 0, 0, 0, 0, "error"
+    except subprocess.TimeoutExpired:
         print(f"    Explorer TIMEOUT ({timeout_sec}s) on {game_id}", flush=True)
         return 0, 0, 0, 0, "timeout"
-
-    if error_box[0]:
-        print(f"    Explorer error: {error_box[0]}", flush=True)
+    except Exception as e:
+        print(f"    Explorer error: {e}", flush=True)
         return 0, 0, 0, 0, "error"
-
-    result = result_box[0]
-    if result is None:
-        return 0, 0, 0, 0, "none"
-
-    return (
-        result.get("levels_completed", 0),
-        result.get("total_levels", 0),
-        result.get("actions_used", 0),
-        result.get("states_explored", 0),
-        result.get("mode", "?"),
-    )
 
 
 def main():
@@ -203,16 +209,16 @@ def main():
                 dt = time.time() - t0
                 print(f"  {gid_short}: {levels_from_solution}/{n_levels} (precomputed, {dt:.1f}s)", flush=True)
 
-        # Phase 2: Explorer fallback (if not all levels solved and not solutions-only mode)
+        # Phase 2: Explorer fallback (if precomputed got 0 and not solutions-only mode)
+        # Skip explorer if precomputed already got levels (explorer creates new scorecard game)
         levels_from_explorer = 0
-        if not SOLUTIONS_ONLY and (not sol or levels_from_solution < n_levels):
+        if not SOLUTIONS_ONLY and levels_from_solution == 0:
             t1 = time.time()
             lc, tl, actions_used, states, mode = run_explorer(arc, game_id, MAX_ACTIONS)
             dt = time.time() - t1
             levels_from_explorer = lc
             if tl > 0:
                 n_levels = tl
-            method = f"explorer({mode})"
             print(f"  {gid_short}: {lc}/{tl} (explorer {mode}, {actions_used} actions, "
                   f"{states} states, {dt:.0f}s)", flush=True)
 
