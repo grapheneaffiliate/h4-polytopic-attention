@@ -169,10 +169,10 @@ def run_explorer(arc, game_id, max_actions=200000, timeout_sec=600):
     script = f"""
 import sys, os, json
 sys.path.insert(0, os.environ.get("PYTHONPATH", "."))
-from olympus.arc3.explorer_v6_adaptive import solve_game, GAME_BUDGETS
+from olympus.arc3.explorer_v6_adaptive import solve_game
 from arc_agi import Arcade
 arc = Arcade(arc_api_key="{os.environ.get('ARC_API_KEY', '')}")
-budget = GAME_BUDGETS.get("{game_id.split('-')[0]}", {max_actions})
+budget = {max_actions}
 try:
     r = solve_game(arc, "{game_id}", budget, verbose=False)
     print(json.dumps(r, default=str))
@@ -267,7 +267,8 @@ def main():
         run_exp = not SOLUTIONS_ONLY and (force_exp or levels_from_solution == 0)
         if run_exp:
             t1 = time.time()
-            lc, tl, actions_used, states, mode = run_explorer(arc, game_id, exp_budget)
+            exp_timeout = 1200 if force_exp else 600  # 20 min for force_explorer games
+            lc, tl, actions_used, states, mode = run_explorer(arc, game_id, exp_budget, timeout_sec=exp_timeout)
             dt = time.time() - t1
             levels_from_explorer = lc
             if tl > 0:
