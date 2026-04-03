@@ -29,6 +29,11 @@ API_KEY = os.environ.get("ARC_API_KEY", "58b421be-5980-4ee8-8e57-0f18dc9369f3")
 MAX_ACTIONS = int(os.environ.get("MAX_ACTIONS", "200000"))
 SOLUTIONS_ONLY = os.environ.get("SOLUTIONS_ONLY", "false").lower() == "true"
 
+# Games where explorer consistently beats precomputed — skip precomputed, use explorer
+FORCE_EXPLORER = {"lp85"}
+# Explorer budget overrides for specific games
+EXPLORER_BUDGETS = {"lp85": 400000}
+
 ACTION_MAP = {
     1: GameAction.ACTION1, 2: GameAction.ACTION2, 3: GameAction.ACTION3,
     4: GameAction.ACTION4, 5: GameAction.ACTION5, 6: GameAction.ACTION6,
@@ -243,25 +248,26 @@ def main():
         gid_short = game_id.split("-")[0]
         t0 = time.time()
 
-        # Phase 1: Pre-computed solutions
         sol = all_solutions.get(gid_short)
         levels_from_solution = 0
+        levels_from_explorer = 0
         n_levels = 0
+        force_exp = gid_short in FORCE_EXPLORER
+        exp_budget = EXPLORER_BUDGETS.get(gid_short, MAX_ACTIONS)
 
-        if sol:
+        # Phase 1: Pre-computed solutions (skip for force_explorer games)
+        if sol and not force_exp:
             levels_from_solution, n_levels = replay_solution(arc, game_id, sol)
-            method = "precomputed"
-
             if levels_from_solution > 0:
                 dt = time.time() - t0
                 print(f"  {gid_short}: {levels_from_solution}/{n_levels} (precomputed, {dt:.1f}s)", flush=True)
 
-        # Phase 2: Explorer fallback (if precomputed got 0 and not solutions-only mode)
-        # Skip explorer if precomputed already got levels (explorer creates new scorecard game)
-        levels_from_explorer = 0
-        if not SOLUTIONS_ONLY and levels_from_solution == 0:
+        # Phase 2: Explorer
+        # Run explorer if: force_explorer, OR precomputed got 0, OR no solution exists
+        run_exp = not SOLUTIONS_ONLY and (force_exp or levels_from_solution == 0)
+        if run_exp:
             t1 = time.time()
-            lc, tl, actions_used, states, mode = run_explorer(arc, game_id, MAX_ACTIONS)
+            lc, tl, actions_used, states, mode = run_explorer(arc, game_id, exp_budget)
             dt = time.time() - t1
             levels_from_explorer = lc
             if tl > 0:
@@ -269,7 +275,7 @@ def main():
             print(f"  {gid_short}: {lc}/{tl} (explorer {mode}, {actions_used} actions, "
                   f"{states} states, {dt:.0f}s)", flush=True)
 
-        # Best result
+        # Take the MAX of both methods
         best = max(levels_from_solution, levels_from_explorer)
         results[gid_short] = {
             "precomputed": levels_from_solution,
