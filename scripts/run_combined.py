@@ -29,6 +29,11 @@ API_KEY = os.environ.get("ARC_API_KEY", "58b421be-5980-4ee8-8e57-0f18dc9369f3")
 MAX_ACTIONS = int(os.environ.get("MAX_ACTIONS", "200000"))
 SOLUTIONS_ONLY = os.environ.get("SOLUTIONS_ONLY", "false").lower() == "true"
 
+# Games where explorer consistently beats precomputed — skip precomputed, use explorer
+FORCE_EXPLORER = {"lp85"}
+# Explorer budget overrides for specific games
+EXPLORER_BUDGETS = {"lp85": 400000}
+
 ACTION_MAP = {
     1: GameAction.ACTION1, 2: GameAction.ACTION2, 3: GameAction.ACTION3,
     4: GameAction.ACTION4, 5: GameAction.ACTION5, 6: GameAction.ACTION6,
@@ -46,13 +51,15 @@ def load_solution(game_id):
     # Only return if it has solved levels with action sequences
     levels = {}
     for lvl in data.get("levels", []):
-        # Accept if explicitly solved=True, or if solved field is absent but actions exist
-        is_solved = lvl.get("solved", True)  # default True if field missing
+        is_solved = lvl.get("solved", True)
         if is_solved is False:
             continue
         actions = lvl.get("actions", [])
+        button_indices = lvl.get("button_indices", [])
         if actions:
-            levels[lvl["level"]] = actions
+            levels[lvl["level"]] = {"actions": actions}
+        elif button_indices:
+            levels[lvl["level"]] = {"button_indices": button_indices}
     return levels if levels else None
 
 
@@ -65,35 +72,80 @@ def replay_solution(arc, game_id, solution_levels):
     info = env.info
     total_levels = len(info.baseline_actions) if info.baseline_actions else 0
 
-    # Initialize
-    obs = env.step(GameAction.ACTION1)
+    def _step_action(env, act_data):
+        """Execute one action, handling both formats."""
+        action_id = act_data.get("id", 1)
+        data = act_data.get("data", {})
+        ga = ACTION_MAP.get(action_id, GameAction.ACTION1)
+        if data and action_id == 6:
+            return env.step(ga, data=data)
+        else:
+            return env.step(ga)
+
+    def _get_level_actions(level_data, env):
+        """Convert level data to action list, resolving button_indices at runtime."""
+        if "actions" in level_data:
+            return level_data["actions"]
+        elif "button_indices" in level_data:
+            # Resolve button indices to click coordinates via game engine
+            game_obj = env._game if hasattr(env, '_game') else None
+            if game_obj:
+                clicks = game_obj._get_valid_clickable_actions()
+                actions = []
+                for btn_idx in level_data["button_indices"]:
+                    if btn_idx < len(clicks):
+                        c = clicks[btn_idx]
+                        actions.append({"id": 6, "data": c.data})
+                    else:
+                        actions.append({"id": 6, "data": {"x": 0, "y": 0}})
+                return actions
+        return []
+
+    # Send first action from solution to initialize
+    first_level = min(solution_levels.keys()) if solution_levels else 0
+    first_level_data = solution_levels.get(first_level, {})
+    first_actions = _get_level_actions(first_level_data, env)
+
+    if not first_actions:
+        obs = env.step(GameAction.ACTION1)
+    else:
+        obs = _step_action(env, first_actions[0])
+
     if obs is None:
         return 0, total_levels
 
     total_levels = obs.win_levels or total_levels
     current_level = obs.levels_completed
-    total_actions = 1
 
-    # Replay each solved level
+    # Replay remaining actions for first level
+    if first_level == 0 and first_actions and current_level == 0:
+        for act_data in first_actions[1:]:
+            obs = _step_action(env, act_data)
+            if obs is None:
+                return current_level, total_levels
+            if obs.levels_completed > current_level:
+                current_level = obs.levels_completed
+                break
+            if obs.state.value != "NOT_FINISHED":
+                break
+
+    # Replay remaining levels
     for level_idx in sorted(solution_levels.keys()):
+        if level_idx <= first_level:
+            continue
         if current_level > level_idx:
-            continue  # Already past this level
+            continue
         if current_level != level_idx:
-            break  # Can't skip levels
+            break
+        if obs.state.value == "WIN":
+            current_level = obs.levels_completed
+            break
 
-        actions = solution_levels[level_idx]
+        level_data = solution_levels[level_idx]
+        actions = _get_level_actions(level_data, env)
+
         for act_data in actions:
-            action_id = act_data.get("id", act_data.get("action", 1))
-            data = act_data.get("data", {})
-            ga = ACTION_MAP.get(action_id, GameAction.ACTION1)
-
-            if data and action_id == 6:
-                obs = env.step(ga, data=data)
-            else:
-                obs = env.step(ga)
-
-            total_actions += 1
-
+            obs = _step_action(env, act_data)
             if obs is None:
                 return current_level, total_levels
             if obs.levels_completed > current_level:
@@ -196,25 +248,26 @@ def main():
         gid_short = game_id.split("-")[0]
         t0 = time.time()
 
-        # Phase 1: Pre-computed solutions
         sol = all_solutions.get(gid_short)
         levels_from_solution = 0
+        levels_from_explorer = 0
         n_levels = 0
+        force_exp = gid_short in FORCE_EXPLORER
+        exp_budget = EXPLORER_BUDGETS.get(gid_short, MAX_ACTIONS)
 
-        if sol:
+        # Phase 1: Pre-computed solutions (skip for force_explorer games)
+        if sol and not force_exp:
             levels_from_solution, n_levels = replay_solution(arc, game_id, sol)
-            method = "precomputed"
-
             if levels_from_solution > 0:
                 dt = time.time() - t0
                 print(f"  {gid_short}: {levels_from_solution}/{n_levels} (precomputed, {dt:.1f}s)", flush=True)
 
-        # Phase 2: Explorer fallback (if precomputed got 0 and not solutions-only mode)
-        # Skip explorer if precomputed already got levels (explorer creates new scorecard game)
-        levels_from_explorer = 0
-        if not SOLUTIONS_ONLY and levels_from_solution == 0:
+        # Phase 2: Explorer
+        # Run explorer if: force_explorer, OR precomputed got 0, OR no solution exists
+        run_exp = not SOLUTIONS_ONLY and (force_exp or levels_from_solution == 0)
+        if run_exp:
             t1 = time.time()
-            lc, tl, actions_used, states, mode = run_explorer(arc, game_id, MAX_ACTIONS)
+            lc, tl, actions_used, states, mode = run_explorer(arc, game_id, exp_budget)
             dt = time.time() - t1
             levels_from_explorer = lc
             if tl > 0:
@@ -222,7 +275,7 @@ def main():
             print(f"  {gid_short}: {lc}/{tl} (explorer {mode}, {actions_used} actions, "
                   f"{states} states, {dt:.0f}s)", flush=True)
 
-        # Best result
+        # Take the MAX of both methods
         best = max(levels_from_solution, levels_from_explorer)
         results[gid_short] = {
             "precomputed": levels_from_solution,

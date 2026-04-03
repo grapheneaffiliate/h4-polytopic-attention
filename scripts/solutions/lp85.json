@@ -1,168 +1,19 @@
 {
-  "game_id": "lp85-305b61c3",
+  "game_id": "lp85",
   "total_levels": 8,
-  "solved_levels": 8,
-  "total_time": 0.1,
+  "solved_levels": 1,
   "levels": [
     {
       "level": 0,
-      "actions": [
-        {
-          "id": 6,
-          "data": {
-            "x": 4,
-            "y": 29
-          }
-        },
-        {
-          "id": 6,
-          "data": {
-            "x": 4,
-            "y": 29
-          }
-        },
-        {
-          "id": 6,
-          "data": {
-            "x": 4,
-            "y": 29
-          }
-        },
-        {
-          "id": 6,
-          "data": {
-            "x": 4,
-            "y": 29
-          }
-        },
-        {
-          "id": 6,
-          "data": {
-            "x": 4,
-            "y": 29
-          }
-        }
-      ],
-      "num_actions": 5
-    },
-    {
-      "level": 1,
-      "actions": [
-        {
-          "id": 6,
-          "data": {
-            "x": 38,
-            "y": 16
-          }
-        },
-        {
-          "id": 6,
-          "data": {
-            "x": 47,
-            "y": 34
-          }
-        },
-        {
-          "id": 6,
-          "data": {
-            "x": 47,
-            "y": 34
-          }
-        },
-        {
-          "id": 6,
-          "data": {
-            "x": 47,
-            "y": 34
-          }
-        },
-        {
-          "id": 6,
-          "data": {
-            "x": 47,
-            "y": 34
-          }
-        }
-      ],
-      "num_actions": 5
-    },
-    {
-      "level": 2,
-      "actions": [
-        {
-          "id": 6,
-          "data": {
-            "x": 47,
-            "y": 25
-          }
-        }
-      ],
-      "num_actions": 1
-    },
-    {
-      "level": 3,
-      "actions": [
-        {
-          "id": 6,
-          "data": {
-            "x": 47,
-            "y": 25
-          }
-        }
-      ],
-      "num_actions": 1
-    },
-    {
-      "level": 4,
-      "actions": [
-        {
-          "id": 6,
-          "data": {
-            "x": 47,
-            "y": 25
-          }
-        }
-      ],
-      "num_actions": 1
-    },
-    {
-      "level": 5,
-      "actions": [
-        {
-          "id": 6,
-          "data": {
-            "x": 47,
-            "y": 25
-          }
-        }
-      ],
-      "num_actions": 1
-    },
-    {
-      "level": 6,
-      "actions": [
-        {
-          "id": 6,
-          "data": {
-            "x": 47,
-            "y": 25
-          }
-        }
-      ],
-      "num_actions": 1
-    },
-    {
-      "level": 7,
-      "actions": [
-        {
-          "id": 6,
-          "data": {
-            "x": 47,
-            "y": 25
-          }
-        }
-      ],
-      "num_actions": 1
+      "solved": true,
+      "num_actions": 5,
+      "button_indices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
     }
   ]
 }
