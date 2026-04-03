@@ -1,0 +1,48 @@
+name: ARC-AGI-3 Combined (Solutions + Explorer v6)
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_actions:
+        description: 'Max actions per game for explorer fallback'
+        required: false
+        default: '200000'
+      solutions_only:
+        description: 'Run pre-computed solutions only (no explorer)'
+        required: false
+        default: 'false'
+
+jobs:
+  arc3-combined:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/harness-pattern
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install arc-agi arcengine scipy numpy
+
+      - name: Run combined solver
+        env:
+          ARC_API_KEY: "58b421be-5980-4ee8-8e57-0f18dc9369f3"
+          PYTHONIOENCODING: utf-8
+          PYTHONPATH: ${{ github.workspace }}
+          MAX_ACTIONS: ${{ github.event.inputs.max_actions }}
+          SOLUTIONS_ONLY: ${{ github.event.inputs.solutions_only }}
+        run: |
+          python scripts/run_combined.py 2>&1 | tee combined_results.txt
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arc3-combined-results
+          path: combined_results.txt

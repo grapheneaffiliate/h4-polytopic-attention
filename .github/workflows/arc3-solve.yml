@@ -4,13 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Mode: solutions-only, explorer-only, or combined'
+        description: 'Mode: combined (solutions+explorer), solutions-only, or explorer-only'
         required: false
         default: 'combined'
-      explorer:
-        description: 'Explorer version for unsolved games (v6t, v6, v5_ucb, v4)'
-        required: false
-        default: 'v6'
       max_actions:
         description: 'Max actions per game for explorer'
         required: false
@@ -24,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: claude/polytopic-attention-implementation-XHkL3
+          ref: work/harness-pattern
 
       - uses: actions/setup-python@v5
         with:
@@ -34,29 +30,26 @@ jobs:
         run: |
           pip install arc-agi arcengine scipy numpy
 
-      - name: Execute pre-computed solutions
-        if: inputs.mode != 'explorer-only'
+      - name: Run combined solver
         env:
           ARC_API_KEY: "58b421be-5980-4ee8-8e57-0f18dc9369f3"
           PYTHONIOENCODING: utf-8
           PYTHONPATH: ${{ github.workspace }}
+          MAX_ACTIONS: ${{ github.event.inputs.max_actions }}
+          SOLUTIONS_ONLY: ${{ inputs.mode == 'solutions-only' && 'true' || 'false' }}
         run: |
-          echo "=== Executing pre-computed solutions ==="
-          python scripts/execute_solutions.py 2>&1 | tee solution_results.txt
+          MODE="${{ github.event.inputs.mode }}"
+          echo "=== ARC-AGI-3 Combined Run ==="
+          echo "Mode: $MODE"
+          echo "Max actions: $MAX_ACTIONS"
+          echo ""
 
-      - name: Run explorer on remaining games
-        if: inputs.mode != 'solutions-only'
-        env:
-          ARC_API_KEY: "58b421be-5980-4ee8-8e57-0f18dc9369f3"
-          PYTHONIOENCODING: utf-8
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          EXPLORER="${{ github.event.inputs.explorer }}"
-          echo "=== Running explorer $EXPLORER on remaining games ==="
-          if [ "$EXPLORER" = "v6" ]; then
-            python olympus/arc3/explorer_v6_adaptive.py 2>&1 | tee explorer_results.txt
+          if [ "$MODE" = "explorer-only" ]; then
+            echo "Running explorer v6 only..."
+            python olympus/arc3/explorer_v6_adaptive.py 2>&1 | tee combined_results.txt
           else
-            python olympus/arc3/explorer_v6_tuned.py 2>&1 | tee explorer_results.txt
+            echo "Running combined (solutions + explorer)..."
+            python scripts/run_combined.py 2>&1 | tee combined_results.txt
           fi
 
       - name: Upload results
@@ -64,6 +57,4 @@ jobs:
         if: always()
         with:
           name: arc3-results
-          path: |
-            solution_results.txt
-            explorer_results.txt
+          path: combined_results.txt
