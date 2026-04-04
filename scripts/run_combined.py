@@ -32,7 +32,7 @@ SOLUTIONS_ONLY = os.environ.get("SOLUTIONS_ONLY", "false").lower() == "true"
 # Games where explorer consistently beats precomputed — skip precomputed, use explorer
 FORCE_EXPLORER = {"lp85"}
 # Explorer budget overrides for specific games
-EXPLORER_BUDGETS = {"lp85": 400000}
+EXPLORER_BUDGETS = {"lp85": 200000}
 
 ACTION_MAP = {
     1: GameAction.ACTION1, 2: GameAction.ACTION2, 3: GameAction.ACTION3,
