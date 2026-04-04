@@ -267,8 +267,22 @@ def main():
         run_exp = not SOLUTIONS_ONLY and (force_exp or levels_from_solution == 0)
         if run_exp:
             t1 = time.time()
-            exp_timeout = 1200 if force_exp else 600  # 20 min for force_explorer games
-            lc, tl, actions_used, states, mode = run_explorer(arc, game_id, exp_budget, timeout_sec=exp_timeout)
+            if force_exp:
+                # Run in-process for force_explorer games (subprocess has scorecard issues)
+                try:
+                    from olympus.arc3.explorer_v6_adaptive import solve_game as v6_solve
+                    result = v6_solve(arc, game_id, exp_budget, verbose=False)
+                    lc = result.get("levels_completed", 0)
+                    tl = result.get("total_levels", 0)
+                    actions_used = result.get("actions_used", 0)
+                    states = result.get("states_explored", 0)
+                    mode = result.get("mode", "?")
+                except Exception as e:
+                    print(f"    Explorer error: {e}", flush=True)
+                    lc, tl, actions_used, states, mode = 0, 0, 0, 0, "error"
+            else:
+                exp_timeout = 600
+                lc, tl, actions_used, states, mode = run_explorer(arc, game_id, exp_budget, timeout_sec=exp_timeout)
             dt = time.time() - t1
             levels_from_explorer = lc
             if tl > 0:
