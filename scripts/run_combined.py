@@ -30,9 +30,10 @@ MAX_ACTIONS = int(os.environ.get("MAX_ACTIONS", "200000"))
 SOLUTIONS_ONLY = os.environ.get("SOLUTIONS_ONLY", "false").lower() == "true"
 
 # Games where explorer consistently beats precomputed — skip precomputed, use explorer
-FORCE_EXPLORER = {"lp85"}
-# Explorer budget overrides for specific games
-EXPLORER_BUDGETS = {"lp85": 200000}
+# Games to skip entirely (explorer hangs in combined runner)
+SKIP_GAMES = {"lp85"}
+FORCE_EXPLORER = set()
+EXPLORER_BUDGETS = {}
 
 ACTION_MAP = {
     1: GameAction.ACTION1, 2: GameAction.ACTION2, 3: GameAction.ACTION3,
@@ -247,6 +248,11 @@ def main():
         game_id = env_info.game_id
         gid_short = game_id.split("-")[0]
         t0 = time.time()
+
+        # Skip problematic games that hang the runner
+        if gid_short in SKIP_GAMES:
+            print(f"  {gid_short}: SKIPPED (hangs runner)", flush=True)
+            continue
 
         sol = all_solutions.get(gid_short)
         levels_from_solution = 0
