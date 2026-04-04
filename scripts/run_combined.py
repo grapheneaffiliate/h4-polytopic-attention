@@ -31,7 +31,7 @@ SOLUTIONS_ONLY = os.environ.get("SOLUTIONS_ONLY", "false").lower() == "true"
 
 # Games where explorer consistently beats precomputed — skip precomputed, use explorer
 # Games to skip entirely (explorer hangs in combined runner)
-SKIP_GAMES = {"lp85"}
+SKIP_GAMES = set()  # LP85 now has precomputed solutions, no need to skip
 FORCE_EXPLORER = set()
 EXPLORER_BUDGETS = {}
 
