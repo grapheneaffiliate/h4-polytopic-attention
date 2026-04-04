@@ -1,0 +1,62 @@
+{
+  "games": {
+    "ar25": {
+      "solved_levels": 2,
+      "training_pairs": 26
+    },
+    "cd82": {
+      "solved_levels": 1,
+      "training_pairs": 5
+    },
+    "cn04": {
+      "solved_levels": 1,
+      "training_pairs": 9
+    },
+    "ft09": {
+      "solved_levels": 6,
+      "training_pairs": 75
+    },
+    "ka59": {
+      "solved_levels": 1,
+      "training_pairs": 11
+    },
+    "lp85": {
+      "solved_levels": 1,
+      "training_pairs": 0
+    },
+    "ls20": {
+      "solved_levels": 1,
+      "training_pairs": 13
+    },
+    "m0r0": {
+      "solved_levels": 2,
+      "training_pairs": 38
+    },
+    "s5i5": {
+      "solved_levels": 1,
+      "training_pairs": 13
+    },
+    "sk48": {
+      "solved_levels": 1,
+      "training_pairs": 14
+    },
+    "sp80": {
+      "solved_levels": 2,
+      "training_pairs": 13
+    },
+    "tn36": {
+      "solved_levels": 5,
+      "training_pairs": 53
+    },
+    "tu93": {
+      "solved_levels": 9,
+      "training_pairs": 185
+    },
+    "vc33": {
+      "solved_levels": 4,
+      "training_pairs": 56
+    }
+  },
+  "total_pairs": 511,
+  "total_levels": 37
+}
