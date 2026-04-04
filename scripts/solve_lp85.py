@@ -142,13 +142,9 @@ def solve_level_abstract(game):
 
     # Required target positions: for each movable_a sprite at (x,y), need a goal at (x+1,y+1)
     # For each movable_b sprite at (x,y), need a goal-o at (x+1,y+1)
-    target_positions_a = {}  # {movable_name: (goal_x, goal_y)}
-    for name, x, y in info['movable_a']:
-        target_positions_a[name] = (x + 1, y + 1)
-
-    target_positions_b = {}
-    for name, x, y in info['movable_b']:
-        target_positions_b[name] = (x + 1, y + 1)
+    # Use LISTS not dicts — multiple movables can have the same name!
+    target_positions_a = [(name, (x + 1, y + 1)) for name, x, y in info['movable_a']]
+    target_positions_b = [(name, (x + 1, y + 1)) for name, x, y in info['movable_b']]
 
     # Build button permutations as index operations
     # For each button: list of (src_pos, tgt_pos) in pixel coords
@@ -172,12 +168,12 @@ def solve_level_abstract(game):
             pos_to_names[pos].add(name)
 
         # Check: for each movable_a, is there a goal sprite at (x+1, y+1)?
-        for name, target_pos in target_positions_a.items():
+        for name, target_pos in target_positions_a:
             names_at_target = pos_to_names.get(target_pos, set())
             if not names_at_target & goal_names:
                 return False
 
-        for name, target_pos in target_positions_b.items():
+        for name, target_pos in target_positions_b:
             names_at_target = pos_to_names.get(target_pos, set())
             if not names_at_target & goal_o_names:
                 return False
