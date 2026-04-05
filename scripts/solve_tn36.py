@@ -251,18 +251,32 @@ def solve_tn36():
                     # Actions: 0..(n_rows-1) = top buttons, then play button, then more buttons
                     # For 6 buttons: need to figure out the action layout
 
-                    # Actually, let me use a different approach: set buttons directly and run
+                    # Direct mapping discovered empirically:
+                    # Action i (0..n_rows-1) = toggle button[i][0]
+                    # Action n_rows+1+i = toggle button[i][1]
+                    # Action n_rows = play button
+                    play_action = n_rows  # action 5 for 5 rows
+
+                    button_clicks = []
                     for i, row in enumerate(tab2.thofkgziyd):
                         target_opcode = perm[i]
                         for j, btn in enumerate(row.puakvdstpr):
                             target_state = bool(target_opcode & (1 << j))
                             if btn.hokejgzome != target_state:
-                                btn.igsdzjpapk(target_state)
+                                if j == 0:
+                                    button_clicks.append(i)        # action 0..4
+                                else:
+                                    button_clicks.append(n_rows + 1 + i)  # action 6..10
+
+                    # Apply button clicks via game actions
+                    for aidx in button_clicks:
+                        step_game(game2, act2[aidx])
 
                     # Verify program
+                    r2 = game2.tsflfunycx.xsseeglmfh
+                    tab2 = r2.tlwkpfljid
                     actual_prog = list(tab2.ylczjoyapu)
                     if actual_prog == list(perm):
-                        # Run via game
                         # Find the play button
                         play_idx = None
                         for idx, a in enumerate(act2):
@@ -276,13 +290,16 @@ def solve_tn36():
                             if game2._score > initial_score:
                                 elapsed = time.time() - t0
                                 print(f"  SOLVED via abstract! perm={list(perm)} {elapsed:.1f}s")
-                                # Record solution (TODO: compute actual button toggles)
+                                # Record button_indices for API replay
+                                all_indices = button_clicks + [play_idx]
                                 solution["levels"].append({
                                     "level": level_idx,
                                     "solved": True,
                                     "program": list(perm),
+                                    "button_indices": all_indices,
+                                    "actions": [{"id": 6, "data": {"x": act2[i].data.get("x", 0), "y": act2[i].data.get("y", 0)}} for i in all_indices],
                                 })
-                                prefix_actions = []  # Will rebuild later
+                                prefix_actions = all_indices
                                 game = game2
                                 total_solved += 1
                                 break
