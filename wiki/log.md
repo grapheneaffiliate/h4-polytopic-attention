@@ -1,10 +1,21 @@
 # Activity Log
 
-## 2026-04-04
-- TR87 solver built: 4/6 levels via rule extraction from game state
-- TR87 levels 4-5 blocked by alter_rules (seed-randomized rules)
-- TN36 solve_tn36.py updated with improved button mapping
-- Wiki created with compiled knowledge for all 25 games
+## 2026-04-04 (CHRYSALIS + solver session)
+- TR87 solver built (`scripts/solve_tr87.py`): 4/6 levels solved
+  - L0: simple rule matching (14 actions)
+  - L1: multi-output rules (25 actions)
+  - L2: multi-input rules (21 actions)
+  - L3: double_translation fixed (21 actions)
+  - L4-5: alter_rules mode blocks — cursor iterates flattened rule sprites, not bottom row
+- TR87 source fully decoded: constants, sprite tags, level flags, randomization seeds
+- TN36 button-to-action mapping discovered: action i=btn[i][0], action i+n+1=btn[i][1], action n=play
+- TN36 abstract solver now outputs click actions (was setting buttons directly via internal API)
+- WA30 source fully analyzed: carry mechanic, blocked set management, per-level data extracted
+- R11L partially analyzed: click-only leg positioning, 60 action limit, collision detection
+- All 10 unsolved games ranked by ROI (TR87 > WA30 > SU15 > R11L > SB26 > G50T > RE86 > SC25 > BP35 > LF52)
+- Wiki pages updated with detailed decoded mechanics for TR87 and WA30
+- BitNet 2.4B model running locally at 15 tok/s via bitnet.cpp (separate work)
+- CHRYSALIS framework built (GeometricMoE, H4 attention, ternary engine) — research, not ARC-relevant
 
 ## 2026-04-04 (earlier)
 - **LP85 5/8 breakthrough**: dict key collision fix in check_win
